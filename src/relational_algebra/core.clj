@@ -1,12 +1,38 @@
-(ns relational-algebra.core
-    (:gen-class))
+(ns relational-algebra.core)
 
-(def employees '({:id 1 :salary 100}, {:id 2 :salary 200}))
+(defprotocol IRelation
+  (base [this]))
 
-(defn project [table, cols]
-      (map #(select-keys % cols) table))
+(deftype Relation [base]
+  IRelation
+  (base [_] base))
 
-(defn -main
-      [& args]
-      (println employees)
-      (println (project employees #{:salary})))
+
+(defmacro defrelation [relation-name base]
+  `(def ~relation-name (Relation. ~base)))
+
+
+
+(comment "to-sql")
+
+(defmulti to-sql type)
+
+(defmethod to-sql clojure.lang.Keyword [k] (name k))
+
+(defmethod to-sql Relation [relation]
+  (let [base (base relation)
+        from-clause (str "SELECT * FROM " (to-sql base))]
+    (str from-clause)))
+
+
+
+(comment "query-sql")
+
+(defmulti query-sql (fn [relation data] (type relation)))
+
+(defmethod query-sql clojure.lang.Keyword [k data] (get data k))
+
+(defmethod query-sql Relation [relation data] 
+  (let [base (base relation)
+        from-data (query-sql base data)]
+    (identity from-data)))
