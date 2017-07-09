@@ -4,7 +4,11 @@
 
 (defrelation person :tbl_person)
 
-(def data {:tbl_person '(2 3 4 5)})
+(def data {:tbl_person 
+           '(
+             {:id 1, :name "alex"}
+             {:id 2, :name "alexon"}
+             )})
 
 (deftest to-sql-base
   (let [
@@ -17,5 +21,19 @@
   (let [
         actual (query-sql person data)
         expect (get data :tbl_person)] 
+    (is (= expect actual))
+    ))
+
+(deftest to-sql-projection
+  (let [
+        actual (to-sql (project person '[:id :name]))
+        expect "SELECT id, name FROM tbl_person"] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-projection
+  (let [
+        actual (query-sql (project person '[:id]) data)
+        expect '({:id 1} {:id 2})] 
     (is (= expect actual))
     ))
