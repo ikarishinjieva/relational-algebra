@@ -28,8 +28,8 @@
 
 (deftest to-sql-select
   (let [
-        proj (->Select person '(:> :id 10))
-        actual (to-sql proj)
+        sel (->Select person '(:> :id 10))
+        actual (to-sql sel)
         expect "SELECT * FROM tbl_person WHERE id > 10"] 
     (is (= expect actual))
     ))
@@ -46,5 +46,13 @@
         proj (->Project person '(:id))
         actual (query-sql proj data)
         expect '({:id 1} {:id 2} {:id 3})] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-select
+  (let [
+        sel (->Select person '(:> :id 2))
+        actual (query-sql sel data)
+        expect '({:id 3 :name "richard"})] 
     (is (= expect actual))
     ))
