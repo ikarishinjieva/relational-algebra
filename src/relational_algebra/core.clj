@@ -1,5 +1,5 @@
 (ns relational-algebra.core
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str] [clojure.set :as set]))
 
 (defmulti to-sql type)
 (defmulti query-sql (fn [rel data] (type rel)))
@@ -33,7 +33,7 @@
   IRelation
   (sql [_]
        (let 
-         [cond-sql-in-middle-seq (map #(to-sql (nth condition %)) '(1 0 2))
+         [cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])
           cond-str (str/join " " cond-sql-in-middle-seq)
           tbl-str (to-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
@@ -57,7 +57,21 @@
              col-str (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) cols))
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
-         )))
+         ))
+  (query [_ data] 
+         (let 
+           [
+            left-tbl-data (query-sql left-tbl data)
+            right-tbl-data (query-sql right-tbl data)
+            idx (set/index right-tbl-data (vals cols))
+            ]
+           (reduce (fn [ret x]
+                     (let [found (idx (set/rename-keys (select-keys x (keys cols)) cols))]
+                       (if found 
+                         (reduce #(conj %1 (merge %2 x)) ret found)
+                         ret)))
+                   [] left-tbl-data)
+           )))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))
@@ -71,3 +85,4 @@
 (defmethod query-sql Base [base data] (query base data))
 (defmethod query-sql Project [project data] (query project data))
 (defmethod query-sql Select [sel data] (query sel data))
+(defmethod query-sql Join [join data] (query join data))

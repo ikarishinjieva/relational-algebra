@@ -7,15 +7,15 @@
 (def city (->Base :tbl_city))
 
 (def data {
-           :tbl_person '(
-                         {:id 1 :name "alex" :city "SH"}
-                         {:id 2 :name "alexon" :city "BJ"}
-                         {:id 3 :name "richard" :city "SH"}
-                         )
-           :tbl_city '(
-                       {:code "SH" :name "ShangHai"}
-                       {:code "BJ" :name "BeiJing"}
-                       )
+           :tbl_person [
+                        {:id 1 :name "alex" :city "SH"}
+                        {:id 2 :name "alexon" :city "BJ"}
+                        {:id 3 :name "richard" :city "SH"}
+                        ]
+           :tbl_city [
+                      {:city_code "SH" :city_name "ShangHai"}
+                      {:city_code "BJ" :city_name "BeiJing"}
+                      ]
            })
 
 (deftest to-sql-base
@@ -60,7 +60,7 @@
   (let [
         proj (->Project person '(:id))
         actual (query-sql proj data)
-        expect '({:id 1} {:id 2} {:id 3})] 
+        expect [{:id 1} {:id 2} {:id 3}]] 
     (is (= expect actual))
     ))
 
@@ -68,6 +68,18 @@
   (let [
         sel (->Select person '(:> :id 2))
         actual (query-sql sel data)
-        expect '({:id 3 :name "richard" :city "SH"})] 
+        expect [{:id 3 :name "richard" :city "SH"}]] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-join
+  (let [
+        sel (->Join person city {:city :city_code})
+        actual (query-sql sel data)
+        expect [
+                {:city_code "SH", :city_name "ShangHai", :id 1, :name "alex", :city "SH"} 
+                {:city_code "BJ", :city_name "BeiJing", :id 2, :name "alexon", :city "BJ"} 
+                {:city_code "SH", :city_name "ShangHai", :id 3, :name "richard", :city "SH"}
+                ]] 
     (is (= expect actual))
     ))
