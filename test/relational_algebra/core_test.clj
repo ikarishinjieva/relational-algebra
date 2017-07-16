@@ -8,9 +8,9 @@
 
 (def data {
            :tbl_person [
-                        {:id 1 :name "alex" :city "SH"}
-                        {:id 2 :name "alexon" :city "BJ"}
-                        {:id 3 :name "richard" :city "SH"}
+                        {:id 1 :name "alex" :city "SH" :age 36}
+                        {:id 2 :name "alexon" :city "BJ" :age 30}
+                        {:id 3 :name "richard" :city "SH" :age 28}
                         ]
            :tbl_city [
                       {:city_code "SH" :city_name "ShangHai"}
@@ -68,7 +68,7 @@
   (let [
         sel (->Select person '(:> :id 2))
         actual (query-sql sel data)
-        expect [{:id 3 :name "richard" :city "SH"}]] 
+        expect [{:id 3 :name "richard" :city "SH" :age 28}]] 
     (is (= expect actual))
     ))
 
@@ -77,9 +77,18 @@
         sel (->Join person city {:city :city_code})
         actual (query-sql sel data)
         expect [
-                {:city_code "SH", :city_name "ShangHai", :id 1, :name "alex", :city "SH"} 
-                {:city_code "BJ", :city_name "BeiJing", :id 2, :name "alexon", :city "BJ"} 
-                {:city_code "SH", :city_name "ShangHai", :id 3, :name "richard", :city "SH"}
+                {:city_code "SH", :city_name "ShangHai", :id 1, :name "alex", :city "SH" :age 36} 
+                {:city_code "BJ", :city_name "BeiJing", :id 2, :name "alexon", :city "BJ" :age 30} 
+                {:city_code "SH", :city_name "ShangHai", :id 3, :name "richard", :city "SH" :age 28}
                 ]] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-aggregate
+  (let [
+        aggr (->Aggregate person [:city] '(:avg :age))
+        actual (query-sql aggr data)
+        expect [{:city "SH", :age 32} {:city "BJ", :age 30}]
+        ]
     (is (= expect actual))
     ))

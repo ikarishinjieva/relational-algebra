@@ -47,7 +47,6 @@
            (filter filter-fn tbl-data)
            )))
 
-
 (defrecord Join [left-tbl right-tbl cols]
   IRelation
   (sql [_] 
@@ -73,6 +72,32 @@
                    [] left-tbl-data)
            )))
 
+(defn aggr-avg [items key] 
+  (let [
+        values (map #(key %) items)
+        ]
+    (/ (apply + values) (count values))))
+
+(def aggr-functions {:avg aggr-avg})
+
+(defrecord Aggregate [tbl group-cols aggr-fn-desc]
+  IRelation
+  (query [_ data] 
+         (let 
+           [
+            tbl-data (query-sql tbl data)
+            tbl-data-by-group (set/index tbl-data group-cols)
+            aggr-fn ((first aggr-fn-desc) aggr-functions)
+            aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
+            aggregate (fn [group-keys group-items] (let [
+                                                            aggred (aggr-fn group-items aggr-fn-arg)
+                                                            aggred-with-key {aggr-fn-arg aggred}
+                                                            ]
+                                                        (conj group-keys aggred-with-key)))
+            ]
+           (map #(apply aggregate %) tbl-data-by-group)
+           )))
+
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))
 (defmethod to-sql Base [base] (sql base))
@@ -86,3 +111,4 @@
 (defmethod query-sql Project [project data] (query project data))
 (defmethod query-sql Select [sel data] (query sel data))
 (defmethod query-sql Join [join data] (query join data))
+(defmethod query-sql Aggregate [aggr data] (query aggr data))
