@@ -49,6 +49,14 @@
     (is (= expect actual))
     ))
 
+(deftest to-sql-aggregate
+  (let [
+        aggr (->Aggregate person [:city] '(:avg :age))
+        actual (to-sql aggr)
+        expect "SELECT city, avg(age) FROM tbl_person GROUP BY city"] 
+    (is (= expect actual))
+    ))
+
 (deftest query-sql-base
   (let [
         actual (query-sql person data)

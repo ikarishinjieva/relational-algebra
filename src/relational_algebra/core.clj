@@ -82,6 +82,17 @@
 
 (defrecord Aggregate [tbl group-cols aggr-fn-desc]
   IRelation
+  (sql [_]
+       (let 
+         [
+          aggr-fn (first aggr-fn-desc)
+          aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
+          aggr-fn-str (str (to-sql aggr-fn) "(" (to-sql aggr-fn-arg) ")")
+          group-cols-str (str/join ", " (map to-sql group-cols))
+          cols-str (str/join ", " [group-cols-str aggr-fn-str])
+          tbl-str (to-sql tbl)]
+         (str "SELECT " cols-str " FROM " tbl-str " GROUP BY " group-cols-str)
+         ))
   (query [_ data] 
          (let 
            [
@@ -104,6 +115,7 @@
 (defmethod to-sql Project [project] (sql project))
 (defmethod to-sql Select [select] (sql select))
 (defmethod to-sql Join [join] (sql join))
+(defmethod to-sql Aggregate [aggr] (sql aggr))
 
 (defmethod query-sql clojure.lang.Keyword [k row] (k row))
 (defmethod query-sql java.lang.Long [long row] (identity long))
