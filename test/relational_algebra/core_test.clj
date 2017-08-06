@@ -41,6 +41,14 @@
     (is (= expect actual))
     ))
 
+(deftest to-sql-select-select
+  (let [
+        sel (->Select (->Select person '(:> :id 10)) '(:< :id 30))
+        actual (to-sql sel)
+        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id > 10) WHERE id < 30"] 
+    (is (= expect actual))
+    ))
+
 (deftest to-sql-join
   (let [
         sel (->Join person city {:city :code})
@@ -77,6 +85,14 @@
         sel (->Select person '(:> :id 2))
         actual (query-sql sel data)
         expect [{:id 3 :name "richard" :city "SH" :age 28}]] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-select-select
+  (let [
+        sel (->Select (->Select person '(:> :id 1)) '(:< :id 3))
+        actual (query-sql sel data)
+        expect [{:id 2 :name "alexon" :city "BJ" :age 30}]] 
     (is (= expect actual))
     ))
 

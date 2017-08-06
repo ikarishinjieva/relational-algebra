@@ -2,6 +2,7 @@
   (:require [clojure.string :as str] [clojure.set :as set]))
 
 (defmulti to-sql type)
+(declare to-sub-sql)
 (defmulti query-sql (fn [rel data] (type rel)))
 
 (defprotocol IRelation
@@ -27,7 +28,10 @@
            (map #(select-keys % cols) tbl-data)
            )))
 
-(def sql-functions { :> > })
+(def sql-functions {
+                    :> > 
+                    :< <
+                    })
 
 (defrecord Select [tbl condition]
   IRelation
@@ -35,7 +39,7 @@
        (let 
          [cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])
           cond-str (str/join " " cond-sql-in-middle-seq)
-          tbl-str (to-sql tbl)]
+          tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
   (query [_ data] 
@@ -116,6 +120,11 @@
 (defmethod to-sql Select [select] (sql select))
 (defmethod to-sql Join [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
+
+(defn to-sub-sql [a]
+  (let [sql (to-sql a)]
+    (if (str/includes? sql " ") (str "(" sql ")") sql)
+    ))
 
 (defmethod query-sql clojure.lang.Keyword [k row] (k row))
 (defmethod query-sql java.lang.Long [long row] (identity long))
