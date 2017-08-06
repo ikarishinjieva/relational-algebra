@@ -105,10 +105,10 @@
             aggr-fn ((first aggr-fn-desc) aggr-functions)
             aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
             aggregate (fn [group-keys group-items] (let [
-                                                            aggred (aggr-fn group-items aggr-fn-arg)
-                                                            aggred-with-key {aggr-fn-arg aggred}
-                                                            ]
-                                                        (conj group-keys aggred-with-key)))
+                                                         aggred (aggr-fn group-items aggr-fn-arg)
+                                                         aggred-with-key {aggr-fn-arg aggred}
+                                                         ]
+                                                     (conj group-keys aggred-with-key)))
             ]
            (map #(apply aggregate %) tbl-data-by-group)
            )))
