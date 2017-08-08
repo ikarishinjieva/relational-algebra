@@ -55,8 +55,8 @@
   IRelation
   (sql [_] 
        (let [
-             left-tbl-str (to-sql left-tbl)
-             right-tbl-str (to-sql right-tbl)
+             left-tbl-str (to-sub-sql left-tbl)
+             right-tbl-str (to-sub-sql right-tbl)
              col-str (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) cols))
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
