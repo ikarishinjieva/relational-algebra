@@ -19,10 +19,10 @@
                       ]
            })
 
-(deftest test-convert-select-cascade
+(deftest test-convert-select-commutative
   (let [
         sel (->Select (->Select person '(:> :id 1)) '(:< :id 3))
-        actual (to-sql (convert-select-cascade sel))
+        actual (to-sql (convert-select-commutative sel))
         expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id < 3) WHERE id > 1"] 
     (is (= expect actual))
     ))

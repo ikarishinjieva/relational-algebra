@@ -3,7 +3,7 @@
   (:import [relational_algebra.core Select])
   )
 
-(defn convert-select-cascade [sel]
+(defn convert-select-commutative [sel]
   {:pre  [
           (instance? Select sel)
           (instance? Select (:tbl sel))
