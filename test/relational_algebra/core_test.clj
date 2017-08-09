@@ -51,9 +51,17 @@
 
 (deftest to-sql-join
   (let [
-        sel (->Join person city {:city :code})
+        sel (->Join person city {:city :city_code})
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = code"] 
+        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code"] 
+    (is (= expect actual))
+    ))
+
+(deftest to-sql-theta-join
+  (let [
+        sel (->ThetaJoin person city {:city :city_code} '(:> :id 2))
+        actual (to-sql sel)
+        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code WHERE id > 2"] 
     (is (= expect actual))
     ))
 
@@ -103,6 +111,16 @@
         expect [
                 {:city_code "SH", :city_name "ShangHai", :id 1, :name "alex", :city "SH" :age 36} 
                 {:city_code "BJ", :city_name "BeiJing", :id 2, :name "alexon", :city "BJ" :age 30} 
+                {:city_code "SH", :city_name "ShangHai", :id 3, :name "richard", :city "SH" :age 28}
+                ]] 
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-theta-join
+  (let [
+        sel (->ThetaJoin person city {:city :city_code} '(:> :id 2))
+        actual (query-sql sel data)
+        expect [
                 {:city_code "SH", :city_name "ShangHai", :id 3, :name "richard", :city "SH" :age 28}
                 ]] 
     (is (= expect actual))

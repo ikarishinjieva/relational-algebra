@@ -69,9 +69,43 @@
             idx (set/index right-tbl-data (vals cols))
             ]
            (reduce (fn [ret x]
-                     (let [found (idx (set/rename-keys (select-keys x (keys cols)) cols))]
-                       (if found 
-                         (reduce #(conj %1 (merge %2 x)) ret found)
+                     (let [join-rows-in-right-tbl (idx (set/rename-keys (select-keys x (keys cols)) cols))]
+                       (if join-rows-in-right-tbl 
+                         (reduce #(conj %1 (merge %2 x)) ret join-rows-in-right-tbl)
+                         ret)))
+                   [] left-tbl-data)
+           )))
+
+(defrecord ThetaJoin [left-tbl right-tbl cols condition]
+  IRelation
+  (sql [_] 
+       (let [
+             left-tbl-str (to-sub-sql left-tbl)
+             right-tbl-str (to-sub-sql right-tbl)
+             col-str (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) cols))
+             cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])
+             cond-str (str/join " " cond-sql-in-middle-seq)
+             ]
+         (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
+         ))
+  (query [_ data] 
+         (let 
+           [
+            left-tbl-data (query-sql left-tbl data)
+            right-tbl-data (query-sql right-tbl data)
+            idx (set/index right-tbl-data (vals cols))
+            cond-fn ((first condition) sql-functions)
+            match-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
+            ]
+           (reduce (fn [ret row-in-left-tbl]
+                     (let [
+                           join-rows-in-right-tbl (idx (set/rename-keys (select-keys row-in-left-tbl (keys cols)) cols))
+                           reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
+                                                         (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
+                                                           (if (match-fn new-row) (conj ret new-row))))
+                           ]
+                       (if join-rows-in-right-tbl
+                         (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
            )))
@@ -119,6 +153,7 @@
 (defmethod to-sql Project [project] (sql project))
 (defmethod to-sql Select [select] (sql select))
 (defmethod to-sql Join [join] (sql join))
+(defmethod to-sql ThetaJoin [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
 
 (defn to-sub-sql [a]
@@ -132,4 +167,5 @@
 (defmethod query-sql Project [project data] (query project data))
 (defmethod query-sql Select [sel data] (query sel data))
 (defmethod query-sql Join [join data] (query join data))
+(defmethod query-sql ThetaJoin [join data] (query join data))
 (defmethod query-sql Aggregate [aggr data] (query aggr data))
