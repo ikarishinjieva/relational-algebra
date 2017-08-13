@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Select Join])
+  (:import [relational_algebra.core Select Join ThetaJoin])
   )
 
 (defn convert-select-commutative [sel]
@@ -33,4 +33,17 @@
         e1-join-e23 (->Join e1 e2-join-e3 e1-e2-cols)
         ]
     (identity e1-join-e23))
+  )
+
+; select(join(e1,e2)) -> theta-join(e1,e2)
+(defn convert-select-join-to-theta-join [sel]
+  {:pre  [
+          (instance? Select sel)
+          (instance? Join (:tbl sel))
+          ]}
+  (let [
+        join (:tbl sel)
+        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) (:condition sel))
+        ]
+    (identity new-join))
   )

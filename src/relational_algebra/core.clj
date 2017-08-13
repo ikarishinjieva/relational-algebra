@@ -75,10 +75,10 @@
             right-tbl-data (query-sql right-tbl data)
             idx (set/index right-tbl-data (vals col-matches))
             ]
-           (reduce (fn [ret x]
-                     (let [join-rows-in-right-tbl (idx (set/rename-keys (select-keys x (keys col-matches)) col-matches))]
+           (reduce (fn [ret row-in-left-tbl]
+                     (let [join-rows-in-right-tbl (idx (set/rename-keys (select-keys row-in-left-tbl (keys col-matches)) col-matches))]
                        (if join-rows-in-right-tbl 
-                         (reduce #(conj %1 (merge %2 x)) ret join-rows-in-right-tbl)
+                         (reduce #(conj %1 (merge %2 row-in-left-tbl)) ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
            )))

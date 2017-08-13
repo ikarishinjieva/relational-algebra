@@ -40,3 +40,11 @@
         expect "SELECT * FROM tbl_person JOIN (SELECT * FROM tbl_city JOIN tbl_position ON city_code = city_code) ON city = city_code"] 
     (is (= expect actual))
     ))
+
+(deftest test-convert-select-join-to-theta-join
+  (let [
+        raw (->Select (->Join person city {:city :city_code}) '(:> :id 2))
+        actual (to-sql (convert-select-join-to-theta-join raw))
+        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code WHERE id > 2"] 
+    (is (= expect actual))
+    ))
