@@ -25,10 +25,10 @@
   (let [
         e1-join-e2 (:left-tbl join)
         e3 (:right-tbl join)
-        e12-e3-cols (:cols join)
+        e12-e3-cols (:col-matches join)
         e1 (:left-tbl e1-join-e2)
         e2 (:right-tbl e1-join-e2)
-        e1-e2-cols (:cols e1-join-e2)
+        e1-e2-cols (:col-matches e1-join-e2)
         e2-join-e3 (->Join e2 e3 e12-e3-cols)
         e1-join-e23 (->Join e1 e2-join-e3 e1-e2-cols)
         ]

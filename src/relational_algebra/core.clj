@@ -33,12 +33,19 @@
                     :< <
                     })
 
+(defn cond-to-str [condition] (let [
+                                    cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])]
+                                (str/join " " cond-sql-in-middle-seq)))
+
+(defn col-matches-to-str [col-matches]
+  (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) col-matches)))
+
 (defrecord Select [tbl condition]
   IRelation
   (sql [_]
        (let 
-         [cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])
-          cond-str (str/join " " cond-sql-in-middle-seq)
+         [
+          cond-str (cond-to-str condition)
           tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
@@ -51,13 +58,13 @@
            (filter filter-fn tbl-data)
            )))
 
-(defrecord Join [left-tbl right-tbl cols]
+(defrecord Join [left-tbl right-tbl col-matches]
   IRelation
   (sql [_] 
        (let [
              left-tbl-str (to-sub-sql left-tbl)
              right-tbl-str (to-sub-sql right-tbl)
-             col-str (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) cols))
+             col-str (col-matches-to-str col-matches)
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
          ))
@@ -66,25 +73,24 @@
            [
             left-tbl-data (query-sql left-tbl data)
             right-tbl-data (query-sql right-tbl data)
-            idx (set/index right-tbl-data (vals cols))
+            idx (set/index right-tbl-data (vals col-matches))
             ]
            (reduce (fn [ret x]
-                     (let [join-rows-in-right-tbl (idx (set/rename-keys (select-keys x (keys cols)) cols))]
+                     (let [join-rows-in-right-tbl (idx (set/rename-keys (select-keys x (keys col-matches)) col-matches))]
                        (if join-rows-in-right-tbl 
                          (reduce #(conj %1 (merge %2 x)) ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
            )))
 
-(defrecord ThetaJoin [left-tbl right-tbl cols condition]
+(defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
   IRelation
   (sql [_] 
        (let [
              left-tbl-str (to-sub-sql left-tbl)
              right-tbl-str (to-sub-sql right-tbl)
-             col-str (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) cols))
-             cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])
-             cond-str (str/join " " cond-sql-in-middle-seq)
+             col-str (col-matches-to-str col-matches)
+             cond-str (cond-to-str condition)
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
          ))
@@ -93,13 +99,13 @@
            [
             left-tbl-data (query-sql left-tbl data)
             right-tbl-data (query-sql right-tbl data)
-            idx (set/index right-tbl-data (vals cols))
+            idx (set/index right-tbl-data (vals col-matches))
             cond-fn ((first condition) sql-functions)
             match-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
             ]
            (reduce (fn [ret row-in-left-tbl]
                      (let [
-                           join-rows-in-right-tbl (idx (set/rename-keys (select-keys row-in-left-tbl (keys cols)) cols))
+                           join-rows-in-right-tbl (idx (set/rename-keys (select-keys row-in-left-tbl (keys col-matches)) col-matches))
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
                                                            (if (match-fn new-row) (conj ret new-row))))
