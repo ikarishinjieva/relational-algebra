@@ -49,6 +49,14 @@
     (is (= expect actual))
     ))
 
+(deftest to-sql-select-and
+  (let [
+        sel (->Select person '(:and (:> :id 10) (:< :id 30)))
+        actual (to-sql sel)
+        expect "SELECT * FROM tbl_person WHERE (id > 10) and (id < 30)"] 
+    (is (= expect actual))
+    ))
+
 (deftest to-sql-join
   (let [
         sel (->Join person city {:city :city_code})

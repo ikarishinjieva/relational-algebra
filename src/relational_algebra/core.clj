@@ -31,11 +31,19 @@
 (def sql-functions {
                     :> > 
                     :< <
+                    :and (fn [a b] (and a b))
                     })
 
-(defn cond-to-str [condition] (let [
-                                    cond-sql-in-middle-seq (map #(to-sql (nth condition %)) [1 0 2])]
-                                (str/join " " cond-sql-in-middle-seq)))
+(defmulti cond-to-str (fn [cond is_nest] (type cond)))
+(defmethod cond-to-str clojure.lang.Keyword [k is_nest] (name k))
+(defmethod cond-to-str java.lang.Long [k is_nest] (identity k))
+(defmethod cond-to-str clojure.lang.IPersistentList [condition is_nest] 
+  (let [
+        op (to-sql (first condition))
+        first-num (cond-to-str (nth condition 1) true)
+        second-num (cond-to-str (nth condition 2) true)
+        expr (str first-num " " op " " second-num)]
+    (if is_nest (str "(" expr ")") expr)))
 
 (defn col-matches-to-str [col-matches]
   (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) col-matches)))
@@ -45,7 +53,7 @@
   (sql [_]
        (let 
          [
-          cond-str (cond-to-str condition)
+          cond-str (cond-to-str condition false)
           tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
@@ -90,7 +98,7 @@
              left-tbl-str (to-sub-sql left-tbl)
              right-tbl-str (to-sub-sql right-tbl)
              col-str (col-matches-to-str col-matches)
-             cond-str (cond-to-str condition)
+             cond-str (cond-to-str condition false)
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
          ))
