@@ -47,3 +47,19 @@
         ]
     (identity new-join))
   )
+
+; select[c1](theta-join[c2](e1,e2)) -> theta-join[c1 and c2](e1,e2)
+(defn convert-select-theta-join-to-theta-join [sel]
+  {:pre  [
+          (instance? Select sel)
+          (instance? ThetaJoin (:tbl sel))
+          ]}
+  (let [
+        join (:tbl sel)
+        sel-cond (:condition sel)
+        join-cond (:condition join)
+        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) (list :and sel-cond join-cond))
+        ]
+    (identity new-join))
+  )
+  

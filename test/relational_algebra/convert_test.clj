@@ -48,3 +48,11 @@
         expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code WHERE id > 2"] 
     (is (= expect actual))
     ))
+
+(deftest test-convert-select-theta-join-to-theta-join
+  (let [
+        raw (->Select (->ThetaJoin person city {:city :city_code} '(:> :id 2)) '(:< :id 10))
+        actual (to-sql (convert-select-theta-join-to-theta-join raw))
+        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code WHERE (id < 10) and (id > 2)"] 
+    (is (= expect actual))
+    ))
