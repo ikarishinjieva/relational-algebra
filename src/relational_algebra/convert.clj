@@ -17,6 +17,7 @@
   )
 
 ; (e1 join e2) join e3 -> e1 join (e2 join e3)
+; TODO precondition: e12-e3-join-key is e1-e2-join-key??
 (defn convert-join-associative [join]
   {:pre  [
           (instance? Join join)
@@ -26,11 +27,15 @@
         e1-join-e2 (:left-tbl join)
         e3 (:right-tbl join)
         e12-e3-cols (:col-matches join)
+        e12-e3-cols-e12 (key (first e12-e3-cols))
+        e12-e3-cols-e3 (val (first e12-e3-cols))
         e1 (:left-tbl e1-join-e2)
         e2 (:right-tbl e1-join-e2)
         e1-e2-cols (:col-matches e1-join-e2)
-        e2-join-e3 (->Join e2 e3 e12-e3-cols)
-        e1-join-e23 (->Join e1 e2-join-e3 e1-e2-cols)
+        e1-e2-cols-e1 (key (first e1-e2-cols))
+        e1-e2-cols-e2 (val (first e1-e2-cols))
+        e2-join-e3 (->Join e2 e3 {(->Col e2 (:col e12-e3-cols-e12)) e12-e3-cols-e3})
+        e1-join-e23 (->Join e1 e2-join-e3 {e1-e2-cols-e1 (->Col e2-join-e3 (:col e1-e2-cols-e2))})
         ]
     (identity e1-join-e23))
   )

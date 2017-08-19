@@ -5,9 +5,18 @@
 (declare to-sub-sql)
 (defmulti query-sql (fn [rel data] (type rel)))
 
+(def table-name-seq (iterate inc 0))
+(defn gen-table-name-seq [] (first (take 1 table-name-seq)))
+
 (defprotocol IRelation
   (sql [this])
-  (query [this data]))
+  (query [this data])
+  (as-name [this]))
+
+(defrecord Col [tbl col]
+  IRelation
+  (sql [_] 
+       (str (as-name tbl) "." (name col))))
 
 (defrecord Base [tbl]
   IRelation
@@ -15,6 +24,8 @@
        (name tbl))
   (query [_ data] 
          (tbl data))
+  (as-name [_] 
+         (name tbl))
   )
 
 (defrecord Project [tbl cols]
@@ -26,7 +37,9 @@
   (query [_ data] 
          (let [tbl-data (query-sql tbl data)]
            (map #(select-keys % cols) tbl-data)
-           )))
+           ))
+  (as-name [_] 
+         (as-name tbl)))
 
 (def sql-functions {
                     :> > 
@@ -37,6 +50,8 @@
 (defmulti cond-to-str (fn [cond is_nest] (type cond)))
 (defmethod cond-to-str clojure.lang.Keyword [k is_nest] (name k))
 (defmethod cond-to-str java.lang.Long [k is_nest] (identity k))
+
+; TODO remove: cond-to-str clojure.lang.IPersistentList
 (defmethod cond-to-str clojure.lang.IPersistentList [condition is_nest] 
   (let [
         op (to-sql (first condition))
@@ -44,6 +59,17 @@
         second-num (cond-to-str (nth condition 2) true)
         expr (str first-num " " op " " second-num)]
     (if is_nest (str "(" expr ")") expr)))
+
+(defmethod cond-to-str clojure.lang.Cons [condition is_nest] 
+  (let [
+        op (to-sql (first condition))
+        first-num (cond-to-str (nth condition 1) true)
+        second-num (cond-to-str (nth condition 2) true)
+        expr (str first-num " " op " " second-num)]
+    (if is_nest (str "(" expr ")") expr)))
+
+(defmethod cond-to-str Col [col is_nest] 
+  (sql col))
 
 (defn col-matches-to-str [col-matches]
   (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) col-matches)))
@@ -64,7 +90,9 @@
             filter-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
             ]
            (filter filter-fn tbl-data)
-           )))
+           ))
+  (as-name [_] 
+         (str "s" (gen-table-name-seq))))
 
 (defrecord Join [left-tbl right-tbl col-matches]
   IRelation
@@ -89,7 +117,9 @@
                          (reduce #(conj %1 (merge %2 row-in-left-tbl)) ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
-           )))
+           ))
+  (as-name [_] 
+         (str "j" (gen-table-name-seq))))
 
 (defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
   IRelation
@@ -122,7 +152,9 @@
                          (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
-           )))
+           ))
+  (as-name [_] 
+         (str "j" (gen-table-name-seq))))
 
 (defn aggr-avg [items key] 
   (let [
@@ -159,7 +191,9 @@
                                                      (conj group-keys aggred-with-key)))
             ]
            (map #(apply aggregate %) tbl-data-by-group)
-           )))
+           ))
+  (as-name [_] 
+         (str "a" (gen-table-name-seq))))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))
@@ -169,10 +203,11 @@
 (defmethod to-sql Join [join] (sql join))
 (defmethod to-sql ThetaJoin [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
+(defmethod to-sql Col [col] (sql col))
 
 (defn to-sub-sql [a]
   (let [sql (to-sql a)]
-    (if (str/includes? sql " ") (str "(" sql ")") sql)
+    (if (str/includes? sql " ") (str "(" sql ") AS " (as-name a)) sql)
     ))
 
 (defmethod query-sql clojure.lang.Keyword [k row] (k row))

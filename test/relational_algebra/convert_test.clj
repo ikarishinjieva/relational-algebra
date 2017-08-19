@@ -27,17 +27,18 @@
 
 (deftest test-convert-select-commutative
   (let [
-        raw (->Select (->Select person '(:> :id 1)) '(:< :id 3))
+        raw (->Select (->Select person `(:> ~(->Col person :id) 1)) `(:< ~(->Col person :id) 3))
         actual (to-sql (convert-select-commutative raw))
-        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id < 3) WHERE id > 1"] 
+        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE tbl_person.id < 3) AS s0 WHERE tbl_person.id > 1"]
     (is (= expect actual))
     ))
 
 (deftest test-convert-join-associative
   (let [
-        raw (->Join (->Join person city {:city :city_code}) position {:city_code :city_code})
+        inner-join (->Join person city {(->Col person :city) (->Col city :city_code)})
+        raw (->Join inner-join position {(->Col inner-join :city_code) (->Col position :city_code)})
         actual (to-sql (convert-join-associative raw))
-        expect "SELECT * FROM tbl_person JOIN (SELECT * FROM tbl_city JOIN tbl_position ON city_code = city_code) ON city = city_code"] 
+        expect "SELECT * FROM tbl_person JOIN (SELECT * FROM tbl_city JOIN tbl_position ON tbl_city.city_code = tbl_position.city_code) AS j0 ON tbl_person.city = j0.city_code"] 
     (is (= expect actual))
     ))
 

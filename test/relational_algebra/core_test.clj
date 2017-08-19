@@ -45,7 +45,7 @@
   (let [
         sel (->Select (->Select person '(:> :id 10)) '(:< :id 30))
         actual (to-sql sel)
-        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id > 10) WHERE id < 30"] 
+        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id > 10) AS s0 WHERE id < 30"] 
     (is (= expect actual))
     ))
 
