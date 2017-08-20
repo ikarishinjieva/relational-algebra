@@ -53,12 +53,13 @@
 
 ; TODO remove: cond-to-str clojure.lang.IPersistentList
 (defmethod cond-to-str clojure.lang.IPersistentList [condition is_nest] 
-  (let [
+  (if (empty? condition) "" 
+    (let [
         op (to-sql (first condition))
         first-num (cond-to-str (nth condition 1) true)
         second-num (cond-to-str (nth condition 2) true)
         expr (str first-num " " op " " second-num)]
-    (if is_nest (str "(" expr ")") expr)))
+    (if is_nest (str "(" expr ")") expr))))
 
 (defmethod cond-to-str clojure.lang.Cons [condition is_nest] 
   (let [
@@ -164,7 +165,7 @@
 
 (def aggr-functions {:avg aggr-avg})
 
-(defrecord Aggregate [tbl group-cols aggr-fn-desc]
+(defrecord Aggregate [tbl group-cols aggr-fn-desc condition]
   IRelation
   (sql [_]
        (let 
@@ -172,10 +173,17 @@
           aggr-fn (first aggr-fn-desc)
           aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
           aggr-fn-str (str (to-sql aggr-fn) "(" (to-sql aggr-fn-arg) ")")
+          has-groupby (not (empty? group-cols))
           group-cols-str (str/join ", " (map to-sql group-cols))
-          cols-str (str/join ", " [group-cols-str aggr-fn-str])
-          tbl-str (to-sql tbl)]
-         (str "SELECT " cols-str " FROM " tbl-str " GROUP BY " group-cols-str)
+          cols-str (if has-groupby (str/join ", " [group-cols-str aggr-fn-str]) aggr-fn-str)
+          tbl-str (to-sql tbl)
+          has-cond (not (empty? condition))
+          cond-str (cond-to-str condition false)
+          base-sql (str "SELECT " cols-str " FROM " tbl-str)
+          group-by-sql (if has-groupby (str base-sql " GROUP BY " group-cols-str) base-sql)
+          cond-sql (if has-cond (str group-by-sql " WHERE " cond-str) group-by-sql)
+          ]
+         (identity cond-sql)
          ))
   (query [_ data] 
          (let 

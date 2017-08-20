@@ -73,11 +73,19 @@
     (is (= expect actual))
     ))
 
-(deftest to-sql-aggregate
+(deftest to-sql-vector-aggregate
   (let [
-        aggr (->Aggregate person [:city] '(:avg :age))
+        aggr (->Aggregate person [:city] '(:avg :age) '())
         actual (to-sql aggr)
         expect "SELECT city, avg(age) FROM tbl_person GROUP BY city"] 
+    (is (= expect actual))
+    ))
+
+(deftest to-sql-scalar-aggregate
+  (let [
+        aggr (->Aggregate person [] '(:avg :age) '(:> :id 2))
+        actual (to-sql aggr)
+        expect "SELECT avg(age) FROM tbl_person WHERE id > 2"] 
     (is (= expect actual))
     ))
 
@@ -136,7 +144,7 @@
 
 (deftest query-sql-aggregate
   (let [
-        aggr (->Aggregate person [:city] '(:avg :age))
+        aggr (->Aggregate person [:city] '(:avg :age) '())
         actual (query-sql aggr data)
         expect [{:city "SH", :age 32} {:city "BJ", :age 30}]
         ]
