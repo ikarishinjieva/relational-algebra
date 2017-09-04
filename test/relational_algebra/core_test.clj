@@ -146,7 +146,9 @@
   (let [
         aggr (->Aggregate person [:city] '(:avg :age) '())
         actual (query-sql aggr data)
-        expect [{:city "SH", :age 32} {:city "BJ", :age 30}]
+        aggr-col-name (keyword "avg(age)")
+        expect [{:city "SH", aggr-col-name 32} {:city "BJ", aggr-col-name 30}]
         ]
     (is (= expect actual))
     ))
+
