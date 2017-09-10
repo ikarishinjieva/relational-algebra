@@ -204,6 +204,27 @@
   (as-name [_] 
          (str "a" (gen-table-name-seq))))
 
+(defrecord Apply [relation expr]
+  IRelation
+  (sql [_]
+       )
+  (query [_ data]
+         (let
+           [
+            apply-expr (fn [row] (let [
+                                       fake-data (assoc data :tbl_fake_in_apply [row])
+                                       fake-tbl (->Base :tbl_fake_in_apply)
+                                       join (->Join fake-tbl expr {})
+                                       ]
+                                   (query-sql join fake-data)))
+            relation-data (query-sql relation data)
+            ]
+           (into [] (reduce concat [] (map apply-expr relation-data)))
+           ))
+  (as-name [_] 
+         (str "ap" (gen-table-name-seq)))
+)
+
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))
 (defmethod to-sql Base [base] (sql base))
@@ -213,6 +234,7 @@
 (defmethod to-sql ThetaJoin [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
 (defmethod to-sql Col [col] (sql col))
+(defmethod to-sql Apply [apply] (sql apply))
 
 (defn to-sub-sql [a]
   (let [sql (to-sql a)]
@@ -227,3 +249,4 @@
 (defmethod query-sql Join [join data] (query join data))
 (defmethod query-sql ThetaJoin [join data] (query join data))
 (defmethod query-sql Aggregate [aggr data] (query aggr data))
+(defmethod query-sql Apply [apply data] (query apply data))
