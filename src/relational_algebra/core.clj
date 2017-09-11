@@ -20,13 +20,12 @@
 
 (defrecord Base [tbl]
   IRelation
-  (sql [_] 
+  (sql [this] 
        (name tbl))
   (query [_ data] 
          (tbl data))
   (as-name [_] 
-         (name tbl))
-  )
+         (str (name tbl) (gen-table-name-seq))))
 
 (defrecord Project [tbl cols]
   IRelation
@@ -238,7 +237,11 @@
 
 (defn to-sub-sql [a]
   (let [sql (to-sql a)]
-    (if (str/includes? sql " ") (str "(" sql ") AS " (as-name a)) sql)
+    (cond
+      (instance? Base a) (str sql " AS " (as-name a))
+      (str/includes? sql " ") (str "(" sql ") AS " (as-name a))
+      :else sql
+      )
     ))
 
 (defmethod query-sql clojure.lang.Keyword [k row] (k row))

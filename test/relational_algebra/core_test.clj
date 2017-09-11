@@ -37,7 +37,7 @@
   (let [
         sel (->Select person '(:> :id 10))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person WHERE id > 10"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE id > 10"] 
     (is (= expect actual))
     ))
 
@@ -45,7 +45,7 @@
   (let [
         sel (->Select (->Select person '(:> :id 10)) '(:< :id 30))
         actual (to-sql sel)
-        expect "SELECT * FROM (SELECT * FROM tbl_person WHERE id > 10) AS s0 WHERE id < 30"] 
+        expect "SELECT * FROM (SELECT * FROM tbl_person AS tbl_person0 WHERE id > 10) AS s0 WHERE id < 30"] 
     (is (= expect actual))
     ))
 
@@ -53,7 +53,7 @@
   (let [
         sel (->Select person '(:and (:> :id 10) (:< :id 30)))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person WHERE (id > 10) and (id < 30)"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE (id > 10) and (id < 30)"] 
     (is (= expect actual))
     ))
 
@@ -61,7 +61,7 @@
   (let [
         sel (->Join person city {:city :city_code})
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code"]
     (is (= expect actual))
     ))
 
@@ -69,7 +69,7 @@
   (let [
         sel (->ThetaJoin person city {:city :city_code} '(:> :id 2))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person JOIN tbl_city ON city = city_code WHERE id > 2"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code WHERE id > 2"] 
     (is (= expect actual))
     ))
 
