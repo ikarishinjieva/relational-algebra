@@ -30,8 +30,8 @@
 (defrecord Project [tbl cols]
   IRelation
   (sql [_] 
-       (let [cols-str (str/join ", " (map name cols))]
-         (str "SELECT " cols-str " FROM " (to-sql tbl))
+       (let [cols-str (str/join ", " (map to-sql cols))]
+         (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
          ))
   (query [_ data] 
          (let [tbl-data (query-sql tbl data)]

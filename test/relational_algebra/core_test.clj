@@ -27,9 +27,10 @@
 
 (deftest to-sql-project
   (let [
-        proj (->Project person '(:id :name))
+        p (->Base :tbl_person)
+        proj (->Project p (list (->Col p :id) (->Col p :name)))
         actual (to-sql proj)
-        expect "SELECT id, name FROM tbl_person"] 
+        expect "SELECT tbl_person0.id, tbl_person0.name FROM tbl_person AS tbl_person0"] 
     (is (= expect actual))
     ))
 
