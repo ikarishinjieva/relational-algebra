@@ -28,7 +28,7 @@
 (deftest to-sql-project
   (let [
         p (->Base :tbl_person)
-        proj (->Project p (list (->Col p :id) (->Col p :name)))
+        proj (->Project p `(~(->Col p :id) ~(->Col p :name)))
         actual (to-sql proj)
         expect "SELECT tbl_person0.id, tbl_person0.name FROM tbl_person AS tbl_person0"] 
     (is (= expect actual))
@@ -36,70 +36,81 @@
 
 (deftest to-sql-select
   (let [
-        sel (->Select person '(:> :id 10))
+        p (->Base :tbl_person)
+        sel (->Select p `(:> ~(->Col p :id) 10))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE id > 10"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 10"] 
     (is (= expect actual))
     ))
 
 (deftest to-sql-select-select
   (let [
-        sel (->Select (->Select person '(:> :id 10)) '(:< :id 30))
+        p (->Base :tbl_person)
+        sel (->Select (->Select p `(:> ~(->Col p :id) 10)) `(:< ~(->Col p :id) 30))
         actual (to-sql sel)
-        expect "SELECT * FROM (SELECT * FROM tbl_person AS tbl_person0 WHERE id > 10) AS s0 WHERE id < 30"] 
+        expect "SELECT * FROM (SELECT * FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 10) AS s0 WHERE tbl_person0.id < 30"] 
     (is (= expect actual))
     ))
 
 (deftest to-sql-select-and
   (let [
-        sel (->Select person '(:and (:> :id 10) (:< :id 30)))
+        p (->Base :tbl_person)
+        sel (->Select p `(:and (:> ~(->Col p :id) 10) (:< ~(->Col p :id) 30)))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE (id > 10) and (id < 30)"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 WHERE (tbl_person0.id > 10) and (tbl_person0.id < 30)"] 
     (is (= expect actual))
     ))
 
 (deftest to-sql-join
   (let [
-        sel (->Join person city {:city :city_code})
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        sel (->Join p c {(->Col p :city) (->Col c :city_code)})
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code"]
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
     (is (= expect actual))
     ))
 
 (deftest to-sql-theta-join
   (let [
-        sel (->ThetaJoin person city {:city :city_code} '(:> :id 2))
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        sel (->ThetaJoin p c {(->Col p :city) (->Col c :city_code)} `(:> ~(->Col p :id) 2))
         actual (to-sql sel)
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code WHERE id > 2"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE tbl_person0.id > 2"] 
     (is (= expect actual))
     ))
 
 (deftest to-sql-vector-aggregate
   (let [
-        aggr (->Aggregate person [:city] '(:avg :age) '())
+        p (->Base :tbl_person)
+        aggr (->Aggregate p [(->Col p :city)] `(:avg ~(->Col p :age)) '())
         actual (to-sql aggr)
-        expect "SELECT city, avg(age) FROM tbl_person GROUP BY city"] 
+        expect "SELECT tbl_person0.city, avg(tbl_person0.age) FROM tbl_person AS tbl_person0 GROUP BY tbl_person0.city"] 
     (is (= expect actual))
     ))
 
 (deftest to-sql-scalar-aggregate
   (let [
-        aggr (->Aggregate person [] '(:avg :age) '(:> :id 2))
+        p (->Base :tbl_person)
+        aggr (->Aggregate person [] `(:avg ~(->Col p :age)) `(:> ~(->Col p :id) 2))
         actual (to-sql aggr)
-        expect "SELECT avg(age) FROM tbl_person WHERE id > 2"] 
+        expect "SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2"] 
     (is (= expect actual))
     ))
 
 (deftest query-sql-base
   (let [
-        actual (query-sql person data)
+        p (->Base :tbl_person)
+        actual (query-sql p data)
         expect (:tbl_person data)] 
     (is (= expect actual))
     ))
 
 (deftest query-sql-project
   (let [
-        proj (->Project person '(:id))
+        p (->Base :tbl_person)
+        proj (->Project p `(~(->Col p :id)))
         actual (query-sql proj data)
         expect [{:id 1} {:id 2} {:id 3}]] 
     (is (= expect actual))
@@ -107,7 +118,8 @@
 
 (deftest query-sql-select
   (let [
-        sel (->Select person '(:> :id 2))
+        p (->Base :tbl_person)
+        sel (->Select p '(:> (->Col p :id) 2))
         actual (query-sql sel data)
         expect [{:id 3 :name "richard" :city "SH" :age 28}]] 
     (is (= expect actual))

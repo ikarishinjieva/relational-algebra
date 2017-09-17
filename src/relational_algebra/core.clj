@@ -34,8 +34,11 @@
          (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
          ))
   (query [_ data] 
-         (let [tbl-data (query-sql tbl data)]
-           (map #(select-keys % cols) tbl-data)
+         (let [
+               tbl-data (query-sql tbl data)
+               col-names (map :col cols)
+               ]
+           (map #(select-keys % col-names) tbl-data)
            ))
   (as-name [_] 
          (as-name tbl)))
@@ -175,7 +178,7 @@
           has-groupby (not (empty? group-cols))
           group-cols-str (str/join ", " (map to-sql group-cols))
           cols-str (if has-groupby (str/join ", " [group-cols-str aggr-fn-str]) aggr-fn-str)
-          tbl-str (to-sql tbl)
+          tbl-str (to-sub-sql tbl)
           has-cond (not (empty? condition))
           cond-str (cond-to-str condition false)
           base-sql (str "SELECT " cols-str " FROM " tbl-str)
