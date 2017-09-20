@@ -103,7 +103,10 @@
   (let [
         p (->Base :tbl_person)
         actual (query-sql p data)
-        expect (:tbl_person data)] 
+        expect '(
+                 {"tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36} 
+                 {"tbl_person0.id" 2, "tbl_person0.name" "alexon", "tbl_person0.city" "BJ", "tbl_person0.age" 30} 
+                 {"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28})]
     (is (= expect actual))
     ))
 

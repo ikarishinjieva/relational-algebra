@@ -22,8 +22,19 @@
   IRelation
   (sql [this] 
        (name tbl))
-  (query [_ data] 
-         (tbl data))
+  (query [this data] 
+         (let [
+               raw-data (tbl data)
+               tbl-name (as-name this)
+               update-col-fn (fn [row] (let [
+                                             cols (keys row)
+                                             fn-map-col-to-tbl-col #(list % (str tbl-name "." (name %)))
+                                             new-cols-mapping (apply array-map (mapcat fn-map-col-to-tbl-col cols))
+                                             ]
+                                         (set/rename-keys row new-cols-mapping)
+                                         ))
+               ]
+           (map update-col-fn raw-data)))
   (as-name [_] 
          (str (name tbl) (gen-table-name-seq))))
 
@@ -90,6 +101,8 @@
          (let 
            [tbl-data (query-sql tbl data)
             cond-fn ((first condition) sql-functions)
+            cond-args (rest condition)
+            ;TODO Col should be checked if it related to tbl or not in cond-args
             filter-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
             ]
            (filter filter-fn tbl-data)
@@ -256,3 +269,6 @@
 (defmethod query-sql ThetaJoin [join data] (query join data))
 (defmethod query-sql Aggregate [aggr data] (query aggr data))
 (defmethod query-sql Apply [apply data] (query apply data))
+
+(defn eq [relA relB]
+  (= (as-name relA) (as-name relB)))
