@@ -18,7 +18,24 @@
 (defrecord Col [tbl col]
   IRelation
   (sql [_] 
-       (str (as-name tbl) "." (name col))))
+       (str (as-name tbl) "." (name col))))-
+
+(defn make-tbl-prefix-mapping [cols tbl]
+  (let [
+        prefix (if (str/blank? tbl) "" (str tbl "."))
+        map-fn #(list % (str prefix (last (str/split % #"\." 2))))
+        ]
+    (apply array-map (mapcat map-fn cols))
+    ))
+
+(defn make-update-row-tbl-prefix-fn [new-tbl-name]
+  (fn [row]
+    (let [
+         cols (keys row)
+         new-cols-mapping (make-tbl-prefix-mapping cols new-tbl-name)
+         ]
+     (set/rename-keys row new-cols-mapping)
+     )))
 
 (defrecord Base [tbl]
   IRelation
@@ -28,15 +45,8 @@
          (let [
                raw-data (tbl data)
                tbl-name (as-name this)
-               update-col-fn (fn [row] (let [
-                                             cols (keys row)
-                                             fn-map-col-to-tbl-col #(list % (str tbl-name "." (name %)))
-                                             new-cols-mapping (apply array-map (mapcat fn-map-col-to-tbl-col cols))
-                                             ]
-                                         (set/rename-keys row new-cols-mapping)
-                                         ))
                ]
-           (map update-col-fn raw-data)))
+           (map (make-update-row-tbl-prefix-fn tbl-name) raw-data)))
   (as-name [_] 
          (str (name tbl) (gen-table-name-seq))))
 
