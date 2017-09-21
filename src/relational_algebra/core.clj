@@ -3,14 +3,16 @@
 
 (defmulti to-sql type)
 (declare to-sub-sql)
-(defmulti query-sql (fn [rel data] (type rel)))
+(defmulti query (fn [rel data is-sub] (type rel)))
+(declare query-sql)
+(declare query-sub-sql)
 
 (def table-name-seq (iterate inc 0))
 (defn gen-table-name-seq [] (first (take 1 table-name-seq)))
 
 (defprotocol IRelation
   (sql [this])
-  (query [this data])
+  (query-data [this data is-sub])
   (as-name [this]))
 
 (defrecord Col [tbl col]
@@ -22,7 +24,7 @@
   IRelation
   (sql [this] 
        (name tbl))
-  (query [this data] 
+  (query-data [this data is-sub] 
          (let [
                raw-data (tbl data)
                tbl-name (as-name this)
@@ -44,11 +46,12 @@
        (let [cols-str (str/join ", " (map to-sql cols))]
          (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
          ))
-  (query [_ data] 
+  (query-data [_ data is-sub] 
          (let [
-               tbl-data (query-sql tbl data)
+               tbl-data (query tbl data)
                col-names (map :col cols)
                ]
+           (print tbl-data)
            (map #(select-keys % col-names) tbl-data)
            ))
   (as-name [_] 
@@ -97,13 +100,13 @@
           tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
-  (query [_ data] 
+  (query-data [_ data is-sub] 
          (let 
-           [tbl-data (query-sql tbl data)
+           [tbl-data (query tbl data)
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
             ;TODO Col should be checked if it related to tbl or not in cond-args
-            filter-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
+            filter-fn (fn [row] (apply cond-fn (map #(query % row) (rest condition))))
             ]
            (filter filter-fn tbl-data)
            ))
@@ -120,11 +123,11 @@
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
          ))
-  (query [_ data] 
+  (query-data [_ data is-sub] 
          (let 
            [
-            left-tbl-data (query-sql left-tbl data)
-            right-tbl-data (query-sql right-tbl data)
+            left-tbl-data (query left-tbl data)
+            right-tbl-data (query right-tbl data)
             idx (set/index right-tbl-data (vals col-matches))
             ]
            (reduce (fn [ret row-in-left-tbl]
@@ -148,14 +151,14 @@
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
          ))
-  (query [_ data] 
+  (query-data [_ data is-sub] 
          (let 
            [
-            left-tbl-data (query-sql left-tbl data)
-            right-tbl-data (query-sql right-tbl data)
+            left-tbl-data (query left-tbl data)
+            right-tbl-data (query right-tbl data)
             idx (set/index right-tbl-data (vals col-matches))
             cond-fn ((first condition) sql-functions)
-            match-fn (fn [row] (apply cond-fn (map #(query-sql % row) (rest condition))))
+            match-fn (fn [row] (apply cond-fn (map #(query % row) (rest condition))))
             ]
            (reduce (fn [ret row-in-left-tbl]
                      (let [
@@ -200,10 +203,10 @@
           ]
          (identity cond-sql)
          ))
-  (query [_ data] 
+  (query-data [_ data is-sub] 
          (let 
            [
-            tbl-data (query-sql tbl data)
+            tbl-data (query tbl data)
             tbl-data-by-group (set/index tbl-data group-cols)
             aggr-fn-name (first aggr-fn-desc)
             aggr-fn (aggr-fn-name aggr-functions)
@@ -223,7 +226,7 @@
   IRelation
   (sql [_]
        )
-  (query [_ data]
+  (query-data [_ data is-sub]
          (let
            [
             apply-expr (fn [row] (let [
@@ -231,8 +234,8 @@
                                        fake-tbl (->Base :tbl_fake_in_apply)
                                        join (->Join fake-tbl expr {})
                                        ]
-                                   (query-sql join fake-data)))
-            relation-data (query-sql relation data)
+                                   (query join fake-data)))
+            relation-data (query relation data)
             ]
            (into [] (reduce concat [] (map apply-expr relation-data)))
            ))
@@ -260,15 +263,20 @@
       )
     ))
 
-(defmethod query-sql clojure.lang.Keyword [k row] (k row))
-(defmethod query-sql java.lang.Long [long row] (identity long))
-(defmethod query-sql Base [base data] (query base data))
-(defmethod query-sql Project [project data] (query project data))
-(defmethod query-sql Select [sel data] (query sel data))
-(defmethod query-sql Join [join data] (query join data))
-(defmethod query-sql ThetaJoin [join data] (query join data))
-(defmethod query-sql Aggregate [aggr data] (query aggr data))
-(defmethod query-sql Apply [apply data] (query apply data))
+(defmethod query clojure.lang.Keyword [k row _] (k row))
+(defmethod query java.lang.Long [long row _] (identity long))
+(defmethod query Base [base data is-sub] (query-data base data is-sub))
+(defmethod query Project [project data is-sub] (query-data project data is-sub))
+(defmethod query Select [sel data is-sub] (query-data sel data is-sub))
+(defmethod query Join [join data is-sub] (query-data join data is-sub))
+(defmethod query ThetaJoin [join data is-sub] (query-data join data is-sub))
+(defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
+(defmethod query Apply [apply data is-sub] (query-data apply data is-sub))
+
+(defn query-sql [op data]
+  (query op data false))
+(defn query-sub-sql [op data]
+  (query op data true))
 
 (defn eq [relA relB]
   (= (as-name relA) (as-name relB)))
