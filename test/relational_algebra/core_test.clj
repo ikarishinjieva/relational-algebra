@@ -140,12 +140,14 @@
 
 (deftest query-sql-join
   (let [
-        sel (->Join person city {"city" "city_code"})
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        sel (->Join p c {(->Col p "city") (->Col c "city_code")})
         actual (query-sql sel data)
         expect [
-                {"city_code" "SH", "city_name" "ShangHai", "id" 1, "name" "alex", "city" "SH" "age" 36} 
-                {"city_code" "BJ", "city_name" "BeiJing", "id" 2, "name" "alexon", "city" "BJ" "age" 30} 
-                {"city_code" "SH", "city_name" "ShangHai", "id" 3, "name" "richard", "city" "SH" "age" 28}
+                {"tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai", "tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36} 
+                {"tbl_city0.city_code" "BJ", "tbl_city0.city_name" "BeiJing", "tbl_person0.id" 2, "tbl_person0.name" "alexon", "tbl_person0.city" "BJ", "tbl_person0.age" 30} 
+                {"tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai", "tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}
                 ]] 
     (is (= expect actual))
     ))
