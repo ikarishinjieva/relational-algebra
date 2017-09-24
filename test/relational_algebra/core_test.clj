@@ -122,9 +122,9 @@
 (deftest query-sql-select
   (let [
         p (->Base :tbl_person)
-        sel (->Select p '(:> (->Col p "id") 2))
+        sel (->Select p `(:> ~(->Col p "id") 2))
         actual (query-sql sel data)
-        expect [{"id" 3 "name" "richard" "city" "SH" "age" 28}]] 
+        expect [{"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}]] 
     (is (= expect actual))
     ))
 

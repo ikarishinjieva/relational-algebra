@@ -15,11 +15,6 @@
   (query-data [this data is-sub])
   (as-name [this]))
 
-(defrecord Col [tbl col]
-  IRelation
-  (sql [_] 
-       (str (as-name tbl) "." (name col))))
-
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
         prefix (if (str/blank? tbl) "" (str tbl "."))
@@ -40,34 +35,12 @@
     identity
     ))
 
-(defrecord Base [tbl]
-  IRelation
-  (sql [this] 
-       (name tbl))
-  (query-data [this data is-sub] 
-         (let [
-               raw-data (tbl data)
-               tbl-name (as-name this)
-               ]
-           (map (make-update-row-tbl-prefix-fn tbl-name is-sub) raw-data)))
-  (as-name [_] 
-         (str (name tbl) (gen-table-name-seq))))
+(defn update-row-tbl-prefix [relation is-sub raw-data]
+  (let [
+         new-tbl-name (as-name relation)
+         ]
+    (map (make-update-row-tbl-prefix-fn new-tbl-name is-sub) raw-data)))
 
-(defrecord Project [tbl cols]
-  IRelation
-  (sql [_] 
-       (let [cols-str (str/join ", " (map to-sql cols))]
-         (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
-         ))
-  (query-data [_ data is-sub] 
-         (let [
-               tbl-data (query-sub-sql tbl data)
-               col-names (map sql cols)
-               ]
-           (map #(select-keys % col-names) tbl-data)
-           ))
-  (as-name [_] 
-         (as-name tbl)))
 
 (def sql-functions {
                     :> > 
@@ -97,11 +70,49 @@
         expr (str first-num " " op " " second-num)]
     (if is_nest (str "(" expr ")") expr)))
 
+(defrecord Col [tbl col]
+  IRelation
+  (sql [_] 
+       (str (as-name tbl) "." (name col)))
+  (query-data [this row _] 
+        (let [
+              col-name (sql this)
+              ]
+          (get row col-name))))
+
 (defmethod cond-to-str Col [col is_nest] 
   (sql col))
 
 (defn col-matches-to-str [col-matches]
   (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) col-matches)))
+
+(defrecord Base [tbl]
+  IRelation
+  (sql [this] 
+       (name tbl))
+  (query-data [this data is-sub] 
+         (let [
+               raw-data (tbl data)
+               ]
+           (update-row-tbl-prefix this is-sub raw-data)))
+  (as-name [_] 
+         (str (name tbl) (gen-table-name-seq))))
+
+(defrecord Project [tbl cols]
+  IRelation
+  (sql [_] 
+       (let [cols-str (str/join ", " (map to-sql cols))]
+         (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
+         ))
+  (query-data [this data is-sub] 
+         (let [
+               tbl-data (query-sub-sql tbl data)
+               col-names (map sql cols)
+               raw-data (map #(select-keys % col-names) tbl-data)
+               ]
+           (update-row-tbl-prefix this is-sub raw-data)))
+  (as-name [_] 
+         (as-name tbl)))
 
 (defrecord Select [tbl condition]
   IRelation
@@ -112,16 +123,16 @@
           tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
-  (query-data [_ data is-sub] 
+  (query-data [this data is-sub] 
          (let 
-           [tbl-data (query tbl data)
+           [tbl-data (query-sub-sql tbl data)
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
             ;TODO Col should be checked if it related to tbl or not in cond-args
-            filter-fn (fn [row] (apply cond-fn (map #(query % row) (rest condition))))
+            filter-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            raw-data (filter filter-fn tbl-data)
             ]
-           (filter filter-fn tbl-data)
-           ))
+           (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
          (str "s" (gen-table-name-seq))))
 
@@ -284,6 +295,7 @@
 (defmethod query ThetaJoin [join data is-sub] (query-data join data is-sub))
 (defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
 (defmethod query Apply [apply data is-sub] (query-data apply data is-sub))
+(defmethod query Col [col data is-sub] (query-data col data is-sub))
 
 (defn query-sql [op data]
   (query op data false))
