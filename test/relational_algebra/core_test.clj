@@ -104,9 +104,9 @@
         p (->Base :tbl_person)
         actual (query-sql p data)
         expect '(
-                 {"tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36} 
-                 {"tbl_person0.id" 2, "tbl_person0.name" "alexon", "tbl_person0.city" "BJ", "tbl_person0.age" 30} 
-                 {"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28})]
+                 {"id" 1, "name" "alex", "city" "SH", "age" 36} 
+                 {"id" 2, "name" "alexon", "city" "BJ", "age" 30} 
+                 {"id" 3, "name" "richard", "city" "SH", "age" 28})]
     (is (= expect actual))
     ))
 
@@ -115,7 +115,7 @@
         p (->Base :tbl_person)
         proj (->Project p `(~(->Col p "id")))
         actual (query-sql proj data)
-        expect [{"id" 1} {"id" 2} {"id" 3}]] 
+        expect [{"tbl_person0.id" 1} {"tbl_person0.id" 2} {"tbl_person0.id" 3}]] 
     (is (= expect actual))
     ))
 
