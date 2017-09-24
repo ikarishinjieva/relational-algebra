@@ -129,7 +129,8 @@
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
             ;TODO Col should be checked if it related to tbl or not in cond-args
-            filter-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            filter-fn (fn [row] 
+                        (apply cond-fn (map #(query-sub-sql % row) cond-args)))
             raw-data (filter filter-fn tbl-data)
             ]
            (update-row-tbl-prefix this is-sub raw-data)))
