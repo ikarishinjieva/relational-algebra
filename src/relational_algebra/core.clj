@@ -17,11 +17,14 @@
 
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
-        prefix (if (str/blank? tbl) "" (str tbl "."))
-        map-fn #(list % (str prefix (last (str/split % #"\." 2))))
-        ]
-    (apply array-map (mapcat map-fn cols))
-    ))
+      prefix (if (str/blank? tbl) "" (str tbl "."))
+      map-fn #(list % 
+                    (if (str/includes? % ".") 
+                        (str/replace-first % #"[a-zA-Z0-9\_\-]+\." prefix)
+                        (str/replace-first % #"([a-zA-Z0-9\_\-]+)" (str prefix "$1"))))
+      ]
+    (apply array-map (mapcat map-fn cols)))
+)
 
 (defn make-update-row-tbl-prefix-fn [new-tbl-name is-sub]
   (if is-sub
@@ -264,7 +267,7 @@
   IRelation
   (sql [_]
        )
-  (query-data [_ data is-sub]
+  (query-data [this data is-sub]
          (let
            [
             apply-expr (fn [row] (let [
@@ -272,10 +275,11 @@
                                        fake-tbl (->Base :tbl_fake_in_apply)
                                        join (->Join fake-tbl expr {})
                                        ]
-                                   (query join fake-data)))
-            relation-data (query relation data)
+                                   (query-sub-sql join fake-data)))
+            relation-data (query-sub-sql relation data)
+            applied-data (into [] (reduce concat [] (map apply-expr relation-data)))
             ]
-           (into [] (reduce concat [] (map apply-expr relation-data)))
+           (update-row-tbl-prefix this is-sub applied-data)
            ))
   (as-name [_] 
          (str "ap" (gen-table-name-seq)))

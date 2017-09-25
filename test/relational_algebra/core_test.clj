@@ -176,11 +176,13 @@
 
 (deftest query-sql-apply-whose-relation-and-expr-has-no-relation
   (let [
-        aggr (->Aggregate person [] '(:avg "age") '(:> "id" 2))
-        appl (->Apply city aggr)
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        appl (->Apply c aggr)
         actual (query-sql appl data)
         aggr-col-name (keyword "avg(age)")
-        expect [{aggr-col-name 94/3, "city_code" "SH", "city_name" "ShangHai"} {aggr-col-name 94/3, "city_code" "BJ", "city_name" "BeiJing"}]
+        expect [{"avg(j0.age)" 94/3, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 94/3, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
     (is (= expect actual))
     ))
