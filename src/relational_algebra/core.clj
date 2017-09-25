@@ -159,7 +159,8 @@
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
-                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)]
+                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
+                           ]
                        (if join-rows-in-right-tbl 
                          (reduce #(conj %1 (merge %2 row-in-left-tbl)) ret join-rows-in-right-tbl)
                          ret)))
@@ -180,18 +181,22 @@
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
          ))
-  (query-data [_ data is-sub] 
+  (query-data [this data is-sub] 
          (let 
            [
-            left-tbl-data (query left-tbl data)
-            right-tbl-data (query right-tbl data)
-            idx (set/index right-tbl-data (vals col-matches))
+            left-tbl-data (query-sub-sql left-tbl data)
+            left-tbl-col-names (map sql (keys col-matches))
+            right-tbl-data (query-sub-sql right-tbl data)
+            right-tbl-col-names (map sql (vals col-matches))
+            right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
+            col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
             cond-fn ((first condition) sql-functions)
-            match-fn (fn [row] (apply cond-fn (map #(query % row) (rest condition))))
-            ]
-           (reduce (fn [ret row-in-left-tbl]
+            cond-args (rest condition)
+            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
-                           join-rows-in-right-tbl (idx (set/rename-keys (select-keys row-in-left-tbl (keys col-matches)) col-matches))
+                           left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
+                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
                                                            (if (match-fn new-row) (conj ret new-row))))
@@ -200,9 +205,11 @@
                          (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
                          ret)))
                    [] left-tbl-data)
+            ]
+            (update-row-tbl-prefix this is-sub joined-data)
            ))
   (as-name [_] 
-         (str "j" (gen-table-name-seq))))
+         (str "tj" (gen-table-name-seq))))
 
 (defn aggr-avg [items key] 
   (let [

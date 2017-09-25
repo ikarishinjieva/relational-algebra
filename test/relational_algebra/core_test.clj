@@ -154,10 +154,12 @@
 
 (deftest query-sql-theta-join
   (let [
-        sel (->ThetaJoin person city {"city" "city_code"} '(:> "id" 2))
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        sel (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         actual (query-sql sel data)
         expect [
-                {"city_code" "SH", "city_name" "ShangHai", "id" 3, "name" "richard", "city" "SH" "age" 28}
+                {"tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai", "tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}
                 ]] 
     (is (= expect actual))
     ))
