@@ -213,7 +213,7 @@
 
 (defn aggr-avg [items key] 
   (let [
-        values (map #(key %) items)
+        values (map #(query-sub-sql key %) items)
         ]
     (/ (apply + values) (count values))))
 
@@ -242,14 +242,15 @@
   (query-data [_ data is-sub] 
          (let 
            [
-            tbl-data (query tbl data)
-            tbl-data-by-group (set/index tbl-data group-cols)
+            tbl-data (query-sub-sql tbl data)
+            group-cols-names (map sql group-cols)
+            tbl-data-by-group (set/index tbl-data group-cols-names)
             aggr-fn-name (first aggr-fn-desc)
             aggr-fn (aggr-fn-name aggr-functions)
             aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
             aggregate (fn [group-keys group-items] (let [
                                                          aggred (aggr-fn group-items aggr-fn-arg)
-                                                         aggred-key (keyword (str (name aggr-fn-name) "(" (name aggr-fn-arg) ")"))
+                                                         aggred-key (str (name aggr-fn-name) "(" (sql aggr-fn-arg) ")")
                                                          ]
                                                      (conj group-keys {aggred-key aggred})))
             ]

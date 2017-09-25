@@ -166,10 +166,10 @@
 
 (deftest query-sql-aggregate
   (let [
-        aggr (->Aggregate person ["city"] '(:avg "age") '())
+        p (->Base :tbl_person)
+        aggr (->Aggregate p [(->Col p "city")] `(:avg ~(->Col p "age")) '())
         actual (query-sql aggr data)
-        aggr-col-name (keyword "avg(age)")
-        expect [{"city" "SH", aggr-col-name 32} {"city" "BJ", aggr-col-name 30}]
+        expect [{"tbl_person0.city" "SH", "avg(tbl_person0.age)" 32} {"tbl_person0.city" "BJ", "avg(tbl_person0.age)" 30}]
         ]
     (is (= expect actual))
     ))
