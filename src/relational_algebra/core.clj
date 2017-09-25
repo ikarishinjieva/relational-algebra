@@ -239,7 +239,7 @@
           ]
          (identity cond-sql)
          ))
-  (query-data [_ data is-sub] 
+  (query-data [this data is-sub] 
          (let 
            [
             tbl-data (query-sub-sql tbl data)
@@ -253,8 +253,9 @@
                                                          aggred-key (str (name aggr-fn-name) "(" (sql aggr-fn-arg) ")")
                                                          ]
                                                      (conj group-keys {aggred-key aggred})))
+            aggred-data (map #(apply aggregate %) tbl-data-by-group)
             ]
-           (map #(apply aggregate %) tbl-data-by-group)
+           (update-row-tbl-prefix this is-sub aggred-data)
            ))
   (as-name [_] 
          (str "a" (gen-table-name-seq))))
