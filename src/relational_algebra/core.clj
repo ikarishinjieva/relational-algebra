@@ -263,6 +263,7 @@
   (as-name [_] 
          (str "a" (gen-table-name-seq))))
 
+; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
 (defrecord Apply [relation expr]
   IRelation
   (sql [_]
