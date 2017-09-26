@@ -181,8 +181,19 @@
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
         appl (->Apply c aggr)
         actual (query-sql appl data)
-        aggr-col-name (keyword "avg(age)")
         expect [{"avg(j0.age)" 94/3, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 94/3, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
+        ]
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-apply-whose-relation-and-expr-has-relation
+  (let [
+        p (->Base :tbl_person)
+        c (->Base :tbl_city)
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        appl (->Apply c aggr)
+        actual (query-sql appl data)
+        expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30/2, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
     (is (= expect actual))
     ))
