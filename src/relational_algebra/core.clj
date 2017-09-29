@@ -49,6 +49,7 @@
                     :> > 
                     :< <
                     :and (fn [a b] (and a b))
+                    := =
                     })
 
 (defmulti cond-to-str (fn [cond is_nest] (type cond)))
@@ -246,8 +247,16 @@
          (let 
            [
             tbl-data (query-sub-sql tbl data)
+            
+            has-cond (not (empty? condition))
+            cond-fn (if has-cond ((first condition) sql-functions) identity)
+            cond-args (if has-cond (rest condition) '())
+            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            
+            tbl-data-filtered (filter match-fn tbl-data)
+            
             group-cols-names (map sql group-cols)
-            tbl-data-by-group (set/index tbl-data group-cols-names)
+            tbl-data-by-group (set/index tbl-data-filtered group-cols-names)
             aggr-fn-name (first aggr-fn-desc)
             aggr-fn (aggr-fn-name aggr-functions)
             aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
@@ -264,7 +273,7 @@
          (str "a" (gen-table-name-seq))))
 
 ; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
-(defrecord Apply [relation expr]
+(defrecord Apply [relation apply-tbl-name expr]
   IRelation
   (sql [_]
        )
@@ -272,10 +281,14 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       fake-data (assoc data :tbl_fake_in_apply [row])
-                                       fake-tbl (->Base :tbl_fake_in_apply)
+                                       apply-tbl-key (keyword apply-tbl-name)
+                                       fake-data (assoc data apply-tbl-key [row])
+                                       fake-tbl (->Base apply-tbl-key)
                                        join (->Join fake-tbl expr {})
                                        ]
+                                   (print join "\n\n")
+                                   (print fake-data "\n\n")
+                                   (print (query-sub-sql join fake-data) "\n\n")
                                    (query-sub-sql join fake-data)))
             relation-data (query-sub-sql relation data)
             applied-data (into [] (reduce concat [] (map apply-expr relation-data)))
@@ -316,6 +329,7 @@
 (defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
 (defmethod query Apply [apply data is-sub] (query-data apply data is-sub))
 (defmethod query Col [col data is-sub] (query-data col data is-sub))
+(defmethod query java.lang.String [str _ _] (identity str))
 
 (defn query-sql [op data]
   (query op data false))

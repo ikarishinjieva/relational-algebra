@@ -174,12 +174,22 @@
     (is (= expect actual))
     ))
 
+(deftest query-sql-aggregate-with-condition
+  (let [
+        p (->Base :tbl_person)
+        aggr (->Aggregate p [(->Col p "city")] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") "SH"))
+        actual (query-sql aggr data)
+        expect [{"tbl_person0.city" "SH", "avg(tbl_person0.age)" 32}]
+        ]
+    (is (= expect actual))
+    ))
+
 (deftest query-sql-apply-whose-relation-and-expr-has-no-relation
   (let [
         p (->Base :tbl_person)
         c (->Base :tbl_city)
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr)
+        appl (->Apply c "apply-tbl-name-no-use" aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 94/3, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 94/3, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
@@ -190,8 +200,10 @@
   (let [
         p (->Base :tbl_person)
         c (->Base :tbl_city)
-        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c aggr)
+        apply-tbl-name (str "tbl_apply_c_" (gen-table-name-seq))
+        apply-tbl (->Base (keyword apply-tbl-name))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col apply-tbl "city_code")))
+        appl (->Apply c apply-tbl-name aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30/2, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
