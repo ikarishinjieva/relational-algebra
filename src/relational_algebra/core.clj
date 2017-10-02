@@ -3,7 +3,7 @@
 
 (defmulti to-sql type)
 (declare to-sub-sql)
-(defmulti query (fn [rel data is-sub] (type rel)))
+(defmulti query (fn [ctx rel data is-sub] (type rel)))
 (declare query-sql)
 (declare query-sub-sql)
 
@@ -12,7 +12,7 @@
 
 (defprotocol IRelation
   (sql [this])
-  (query-data [this data is-sub])
+  (query-data [this ctx data is-sub])
   (as-name [this]))
 
 (defn make-tbl-prefix-mapping [cols tbl]
@@ -44,6 +44,18 @@
          ]
     (map (make-update-row-tbl-prefix-fn new-tbl-name is-sub) raw-data)))
 
+
+(defprotocol IContext
+  (replace-tbl-data [this origin-tbl origin-data])
+  (add-replace-tbl-data [this tbl data]))
+
+;tbl-replace-map is to replace tbl data when querying data, it's for Apply's op "expr(rel)"
+(deftype Context [replace-tbl-data-map]
+  IContext 
+  (replace-tbl-data [this origin-tbl origin-data]
+                    (get replace-tbl-data-map origin-tbl origin-data))
+  (add-replace-tbl-data [this tbl data]
+                        (assoc (replace-tbl-data-map this) tbl data)))
 
 (def sql-functions {
                     :> > 
@@ -78,11 +90,14 @@
   IRelation
   (sql [_] 
        (str (as-name tbl) "." (name col)))
-  (query-data [this row _] 
+  (query-data [this ctx row _] 
         (let [
+              r (replace-tbl-data ctx tbl row)
+              update-prefix-fn (make-update-row-tbl-prefix-fn (as-name tbl) true)
+              updated-prefix-row (update-prefix-fn r)
               col-name (sql this)
               ]
-          (get row col-name))))
+          (get updated-prefix-row col-name))))
 
 (defmethod cond-to-str Col [col is_nest] 
   (sql col))
@@ -94,7 +109,7 @@
   IRelation
   (sql [this] 
        (name tbl))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let [
                raw-data (tbl data)
                ]
@@ -108,7 +123,7 @@
        (let [cols-str (str/join ", " (map to-sql cols))]
          (str "SELECT " cols-str " FROM " (to-sub-sql tbl))
          ))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let [
                tbl-data (query-sub-sql tbl data)
                col-names (map sql cols)
@@ -127,7 +142,7 @@
           tbl-str (to-sub-sql tbl)]
          (str "SELECT * FROM " tbl-str " WHERE " cond-str)
          ))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let 
            [tbl-data (query-sub-sql tbl data)
             cond-fn ((first condition) sql-functions)
@@ -151,12 +166,12 @@
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
          ))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let 
            [
-            left-tbl-data (query-sub-sql left-tbl data)
+            left-tbl-data (query-sub-sql ctx left-tbl data)
             left-tbl-col-names (map sql (keys col-matches))
-            right-tbl-data (query-sub-sql right-tbl data)
+            right-tbl-data (query-sub-sql ctx right-tbl data)
             right-tbl-col-names (map sql (vals col-matches))
             right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
             col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
@@ -185,7 +200,7 @@
              ]
          (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
          ))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let 
            [
             left-tbl-data (query-sub-sql left-tbl data)
@@ -215,9 +230,9 @@
   (as-name [_] 
          (str "tj" (gen-table-name-seq))))
 
-(defn aggr-avg [items key] 
+(defn aggr-avg [ctx items key] 
   (let [
-        values (map #(query-sub-sql key %) items)
+        values (map #(query-sub-sql ctx key %) items)
         ]
     (/ (apply + values) (count values))))
 
@@ -243,15 +258,15 @@
           ]
          (identity cond-sql)
          ))
-  (query-data [this data is-sub] 
+  (query-data [this ctx data is-sub] 
          (let 
            [
-            tbl-data (query-sub-sql tbl data)
+            tbl-data (query-sub-sql ctx tbl data)
             
             has-cond (not (empty? condition))
             cond-fn (if has-cond ((first condition) sql-functions) identity)
             cond-args (if has-cond (rest condition) '())
-            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
             
             tbl-data-filtered (filter match-fn tbl-data)
             
@@ -261,7 +276,7 @@
             aggr-fn (aggr-fn-name aggr-functions)
             aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
             aggregate (fn [group-keys group-items] (let [
-                                                         aggred (aggr-fn group-items aggr-fn-arg)
+                                                         aggred (aggr-fn ctx group-items aggr-fn-arg)
                                                          aggred-key (str (name aggr-fn-name) "(" (sql aggr-fn-arg) ")")
                                                          ]
                                                      (conj group-keys {aggred-key aggred})))
@@ -277,20 +292,18 @@
   IRelation
   (sql [_]
        )
-  (query-data [this data is-sub]
+  (query-data [this ctx data is-sub]
          (let
            [
             apply-expr (fn [row] (let [
                                        apply-tbl-key (keyword apply-tbl-name)
                                        fake-data (assoc data apply-tbl-key [row])
                                        fake-tbl (->Base apply-tbl-key)
+                                       fake-ctx (->Context (add-replace-tbl-data ctx fake-tbl row))
                                        join (->Join fake-tbl expr {})
                                        ]
-                                   (print join "\n\n")
-                                   (print fake-data "\n\n")
-                                   (print (query-sub-sql join fake-data) "\n\n")
-                                   (query-sub-sql join fake-data)))
-            relation-data (query-sub-sql relation data)
+                                   (query-sub-sql fake-ctx join fake-data)))
+            relation-data (query-sub-sql ctx relation data)
             applied-data (into [] (reduce concat [] (map apply-expr relation-data)))
             ]
            (update-row-tbl-prefix this is-sub applied-data)
@@ -319,22 +332,22 @@
       )
     ))
 
-(defmethod query clojure.lang.Keyword [k row _] (k row))
-(defmethod query java.lang.Long [long row _] (identity long))
-(defmethod query Base [base data is-sub] (query-data base data is-sub))
-(defmethod query Project [project data is-sub] (query-data project data is-sub))
-(defmethod query Select [sel data is-sub] (query-data sel data is-sub))
-(defmethod query Join [join data is-sub] (query-data join data is-sub))
-(defmethod query ThetaJoin [join data is-sub] (query-data join data is-sub))
-(defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
-(defmethod query Apply [apply data is-sub] (query-data apply data is-sub))
-(defmethod query Col [col data is-sub] (query-data col data is-sub))
-(defmethod query java.lang.String [str _ _] (identity str))
+(defmethod query clojure.lang.Keyword [ctx k row _] (k row))
+(defmethod query java.lang.Long [ctx long row _] (identity long))
+(defmethod query Base [ctx base data is-sub] (query-data base ctx data is-sub))
+(defmethod query Project [ctx project data is-sub] (query-data project ctx data is-sub))
+(defmethod query Select [ctx sel data is-sub] (query-data sel ctx data is-sub))
+(defmethod query Join [ctx join data is-sub] (query-data join ctx data is-sub))
+(defmethod query ThetaJoin [ctx join data is-sub] (query-data join ctx data is-sub))
+(defmethod query Aggregate [ctx aggr data is-sub] (query-data aggr ctx data is-sub))
+(defmethod query Apply [ctx apply data is-sub] (query-data apply ctx data is-sub))
+(defmethod query Col [ctx col data is-sub] (query-data col ctx data is-sub))
+(defmethod query java.lang.String [ctx str _ _] (identity str))
 
 (defn query-sql [op data]
-  (query op data false))
-(defn query-sub-sql [op data]
-  (query op data true))
+  (query (->Context {}) op data false))
+(defn query-sub-sql [ctx op data]
+  (query ctx op data true))
 
 (defn eq [relA relB]
   (= (as-name relA) (as-name relB)))
