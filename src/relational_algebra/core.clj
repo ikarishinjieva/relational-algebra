@@ -47,10 +47,10 @@
 
 (defprotocol IContext
   (replace-tbl-data [this origin-tbl origin-data])
-  (add-replace-tbl-data [this tbl data]))
+  (add-tbl-data-replacement [this tbl data]))
 
 ;tbl-replace-map is to replace tbl data when querying data, it's for Apply's op "expr(rel)"
-(deftype Context [replace-tbl-data-map]
+(defrecord Context [replace-tbl-data-map]
   IContext 
   (replace-tbl-data [this origin-tbl origin-data]
                     (let [replaced (get replace-tbl-data-map origin-tbl)]
@@ -60,8 +60,8 @@
                           replaced 
                           (first replaced) ;replaced should be a row, then give it the first row
                           ))))
-  (add-replace-tbl-data [this tbl data]
-                        (assoc (replace-tbl-data-map this) tbl data)))
+  (add-tbl-data-replacement [this tbl data]
+                        (->Context (assoc (replace-tbl-data-map this) tbl data))))
 
 (def sql-functions {
                     :> > 
@@ -304,7 +304,7 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       fake-ctx (->Context (add-replace-tbl-data ctx relation [row]))
+                                       fake-ctx (add-tbl-data-replacement ctx relation [row])
                                        joined (->Join relation expr {})
                                        ]
                                    (query-sub-sql fake-ctx joined data)))
