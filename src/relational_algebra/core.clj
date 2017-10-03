@@ -53,7 +53,13 @@
 (deftype Context [replace-tbl-data-map]
   IContext 
   (replace-tbl-data [this origin-tbl origin-data]
-                    (get replace-tbl-data-map origin-tbl origin-data))
+                    (let [replaced (get replace-tbl-data-map origin-tbl)]
+                      (if (nil? replaced)
+                        origin-data
+                        (if (seq? origin-data) 
+                          replaced 
+                          (first replaced) ;replaced should be a row, then give it the first row
+                          ))))
   (add-replace-tbl-data [this tbl data]
                         (assoc (replace-tbl-data-map this) tbl data)))
 
@@ -170,10 +176,12 @@
          (let 
            [
             left-tbl-data (query-sub-sql ctx left-tbl data)
+            left-tbl-data-replaced (replace-tbl-data ctx left-tbl left-tbl-data)
             left-tbl-col-names (map sql (keys col-matches))
             right-tbl-data (query-sub-sql ctx right-tbl data)
+            right-tbl-data-replaced (replace-tbl-data ctx right-tbl right-tbl-data)
             right-tbl-col-names (map sql (vals col-matches))
-            right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
+            right-tbl-data-indexes (set/index right-tbl-data-replaced right-tbl-col-names)
             col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
@@ -183,7 +191,7 @@
                        (if join-rows-in-right-tbl 
                          (reduce #(conj %1 (merge %2 row-in-left-tbl)) ret join-rows-in-right-tbl)
                          ret)))
-                   [] left-tbl-data)
+                   [] left-tbl-data-replaced)
             ]
            (update-row-tbl-prefix this is-sub joined-data)))
   (as-name [_] 
@@ -296,13 +304,10 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       apply-tbl-key (keyword apply-tbl-name)
-                                       fake-data (assoc data apply-tbl-key [row])
-                                       fake-tbl (->Base apply-tbl-key)
-                                       fake-ctx (->Context (add-replace-tbl-data ctx fake-tbl row))
-                                       join (->Join fake-tbl expr {})
+                                       fake-ctx (->Context (add-replace-tbl-data ctx relation [row]))
+                                       joined (->Join relation expr {})
                                        ]
-                                   (query-sub-sql fake-ctx join fake-data)))
+                                   (query-sub-sql fake-ctx joined data)))
             relation-data (query-sub-sql ctx relation data)
             applied-data (into [] (reduce concat [] (map apply-expr relation-data)))
             ]

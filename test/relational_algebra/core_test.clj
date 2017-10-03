@@ -202,7 +202,7 @@
         c (->Base :tbl_city)
         apply-tbl-name (str "tbl_apply_c_" (gen-table-name-seq))
         apply-tbl (->Base (keyword apply-tbl-name))
-        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col apply-tbl "city_code")))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
         appl (->Apply c apply-tbl-name aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
