@@ -131,7 +131,7 @@
          ))
   (query-data [this ctx data is-sub] 
          (let [
-               tbl-data (query-sub-sql tbl data)
+               tbl-data (query-sub-sql ctx tbl data)
                col-names (map sql cols)
                raw-data (map #(select-keys % col-names) tbl-data)
                ]
@@ -150,12 +150,12 @@
          ))
   (query-data [this ctx data is-sub] 
          (let 
-           [tbl-data (query-sub-sql tbl data)
+           [tbl-data (query-sub-sql ctx tbl data)
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
             ;TODO Col should be checked if it related to tbl or not in cond-args
             filter-fn (fn [row] 
-                        (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+                        (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
             raw-data (filter filter-fn tbl-data)
             ]
            (update-row-tbl-prefix this is-sub raw-data)))
@@ -211,15 +211,15 @@
   (query-data [this ctx data is-sub] 
          (let 
            [
-            left-tbl-data (query-sub-sql left-tbl data)
+            left-tbl-data (query-sub-sql ctx left-tbl data)
             left-tbl-col-names (map sql (keys col-matches))
-            right-tbl-data (query-sub-sql right-tbl data)
+            right-tbl-data (query-sub-sql ctx right-tbl data)
             right-tbl-col-names (map sql (vals col-matches))
             right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
             col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
-            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql % row) cond-args)))
+            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
@@ -272,10 +272,12 @@
             tbl-data (query-sub-sql ctx tbl data)
             
             has-cond (not (empty? condition))
-            cond-fn (if has-cond ((first condition) sql-functions) identity)
-            cond-args (if has-cond (rest condition) '())
-            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
-            
+            match-fn (if has-cond
+                       (let [
+                             cond-fn (if has-cond ((first condition) sql-functions))
+                             cond-args (if has-cond (rest condition))
+                             ] (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args))))
+                       identity)
             tbl-data-filtered (filter match-fn tbl-data)
             
             group-cols-names (map sql group-cols)
