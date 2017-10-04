@@ -1,5 +1,7 @@
 (ns relational-algebra.core
-  (:require [clojure.string :as str] [clojure.set :as set]))
+  (:require [clojure.string :as str] 
+            [clojure.set :as set] 
+            [clojure.tools.logging :as log]))
 
 (defmulti to-sql type)
 (declare to-sub-sql)
@@ -72,6 +74,7 @@
 
 (defmulti cond-to-str (fn [cond is_nest] (type cond)))
 (defmethod cond-to-str clojure.lang.Keyword [k is_nest] (name k))
+(defmethod cond-to-str java.lang.String [k is_nest] (identity k))
 (defmethod cond-to-str java.lang.Long [k is_nest] (identity k))
 
 ; TODO remove: cond-to-str clojure.lang.IPersistentList
@@ -117,7 +120,7 @@
        (name tbl))
   (query-data [this ctx data is-sub] 
          (let [
-               raw-data (tbl data)
+               raw-data (get data tbl)
                ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
@@ -155,7 +158,9 @@
             cond-args (rest condition)
             ;TODO Col should be checked if it related to tbl or not in cond-args
             filter-fn (fn [row] 
-                        (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
+                        (let [queried-args (map #(query-sub-sql ctx % row) cond-args)]
+                          (log/debugf "select filter: (%s %s), row: %s" (first condition) (pr-str queried-args) (pr-str row))
+                          (apply cond-fn queried-args)))
             raw-data (filter filter-fn tbl-data)
             ]
            (update-row-tbl-prefix this is-sub raw-data)))
@@ -329,6 +334,7 @@
 (defmethod to-sql Aggregate [aggr] (sql aggr))
 (defmethod to-sql Col [col] (sql col))
 (defmethod to-sql Apply [apply] (sql apply))
+(defmethod to-sql java.lang.String [str] (identity str))
 
 (defn to-sub-sql [a]
   (let [sql (to-sql a)]
@@ -352,8 +358,10 @@
 (defmethod query java.lang.String [ctx str _ _] (identity str))
 
 (defn query-sql [op data]
+  (log/debugf "query (%s)" (type op))
   (query (->Context {}) op data false))
 (defn query-sub-sql [ctx op data]
+  (log/debugf "sub-query (%s)" (type op))
   (query ctx op data true))
 
 (defn eq [relA relB]
