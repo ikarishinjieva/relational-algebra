@@ -4,12 +4,6 @@
             [relational-algebra.convert :refer :all]
             [clojure.tools.logging :as log]))
 
-(def person (->Base "tbl_person"))
-
-(def city (->Base "tbl_city"))
-
-(def position (->Base "tbl_position"))
-
 (def data {
            "tbl_person" [
                         {"id" 1, "name" "alex", "city" "SH", "age" 36}

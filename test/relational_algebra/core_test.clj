@@ -2,10 +2,6 @@
   (:require [clojure.test :refer :all]
             [relational-algebra.core :refer :all]))
 
-(def person (->Base "tbl_person"))
-
-(def city (->Base "tbl_city"))
-
 (def data {
            "tbl_person" [
                         {"id" 1, "name" "alex", "city" "SH", "age" 36}
@@ -20,7 +16,8 @@
 
 (deftest to-sql-base
   (let [
-        actual (to-sql person)
+        p (->Base "tbl_person")
+        actual (to-sql p)
         expect "tbl_person"] 
     (is (= expect actual))
     ))
@@ -93,7 +90,7 @@
 (deftest to-sql-scalar-aggregate
   (let [
         p (->Base "tbl_person")
-        aggr (->Aggregate person [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
         actual (to-sql aggr)
         expect "SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2"] 
     (is (= expect actual))
