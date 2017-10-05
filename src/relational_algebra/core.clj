@@ -15,7 +15,8 @@
 (defprotocol IRelation
   (sql [this])
   (query-data [this ctx data is-sub])
-  (as-name [this]))
+  (as-name [this])
+  (replace-tbl [this tbl-mapping]))
 
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
@@ -106,13 +107,26 @@
               updated-prefix-row (update-prefix-fn r)
               col-name (sql this)
               ]
-          (get updated-prefix-row col-name))))
+          (get updated-prefix-row col-name)))
+  (replace-tbl [this tbl-mapping]
+               (let [new-tbl (get tbl-mapping tbl tbl)]
+                   (->Col new-tbl col))))
 
 (defmethod cond-to-str Col [col is_nest] 
   (sql col))
 
 (defn col-matches-to-str [col-matches]
   (str/join " " (map #(str (to-sql (first %)) " = " (to-sql (second %))) col-matches)))
+
+(defn update-map-kv [m f & args]
+ (reduce (fn [r [k v]] (assoc r (apply f k args) (apply f v args))) {} m))
+
+(defn replace-tbl-on-fn-desc [condition tbl-mapping]
+  (apply list (map 
+    #(if (satisfies? IRelation %1) 
+       (replace-tbl %1 tbl-mapping)
+       %1)
+    condition)))
 
 (defrecord Base [tbl]
   IRelation
@@ -124,7 +138,9 @@
                ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
-         (str (name tbl) (gen-table-name-seq))))
+         (str (name tbl) (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (get tbl-mapping tbl tbl)))
 
 (defrecord Project [tbl cols]
   IRelation
@@ -140,7 +156,10 @@
                ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
-         (as-name tbl)))
+         (as-name tbl))
+  (replace-tbl [this tbl-mapping]
+               (let [new-tbl (replace-tbl tbl tbl-mapping)]
+                   (->Project new-tbl cols))))
 
 (defrecord Select [tbl condition]
   IRelation
@@ -165,7 +184,13 @@
             ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
-         (str "s" (gen-table-name-seq))))
+         (str "s" (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-tbl (replace-tbl tbl tbl-mapping)
+                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                     ]
+                 (->Select new-tbl new-condition))))
 
 (defrecord Join [left-tbl right-tbl col-matches]
   IRelation
@@ -200,7 +225,14 @@
             ]
            (update-row-tbl-prefix this is-sub joined-data)))
   (as-name [_] 
-         (str "j" (gen-table-name-seq))))
+         (str "j" (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                     ]
+                   (->Join new-left-tbl new-right-tbl new-col-matches))))
 
 (defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
   IRelation
@@ -241,7 +273,15 @@
             (update-row-tbl-prefix this is-sub joined-data)
            ))
   (as-name [_] 
-         (str "tj" (gen-table-name-seq))))
+         (str "tj" (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                     ]
+                   (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition))))
 
 (defn aggr-avg [ctx items key] 
   (let [
@@ -300,7 +340,15 @@
            (update-row-tbl-prefix this is-sub aggred-data)
            ))
   (as-name [_] 
-         (str "a" (gen-table-name-seq))))
+         (str "a" (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-tbl (replace-tbl tbl tbl-mapping)
+                     new-group-cols (map #(replace-tbl %1 tbl-mapping) group-cols)
+                     new-aggr-fn-desc (replace-tbl-on-fn-desc aggr-fn-desc tbl-mapping)
+                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                     ]
+                   (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition))))
 
 ; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
 (defrecord Apply [relation apply-tbl-name expr]
@@ -322,7 +370,12 @@
            ))
   (as-name [_] 
          (str "ap" (gen-table-name-seq)))
-)
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-relation (replace-tbl relation tbl-mapping)
+                     new-expr (replace-tbl expr tbl-mapping)
+                     ]
+                   (->Apply new-relation apply-tbl-name new-expr))))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))

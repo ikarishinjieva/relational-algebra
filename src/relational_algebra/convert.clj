@@ -10,8 +10,8 @@
           ]}
   (let [
         sub-sel (:tbl sel)
-        new-sub-sel (->Select (:tbl sub-sel) (:condition sel))
-        new-sel (->Select (identity new-sub-sel) (:condition sub-sel))
+        new-sub-sel (->Select (:tbl sub-sel) (replace-tbl-on-fn-desc (:condition sel) {sub-sel (:tbl sub-sel)}))
+        new-sel (->Select (identity new-sub-sel) (replace-tbl-on-fn-desc (:condition sub-sel) {(:tbl sub-sel) new-sub-sel}))
         ]
     (identity new-sel))
   )
