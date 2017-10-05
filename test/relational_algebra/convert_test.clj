@@ -12,17 +12,17 @@
 
 (def data {
            "tbl_person" [
-                        {"id" 1 "name" "alex" "city" "SH" :age 36}
-                        {"id" 2 "name" "alexon" "city" "BJ" :age 30}
-                        {"id" 3 "name" "richard" "city" "SH" :age 28}
+                        {"id" 1, "name" "alex", "city" "SH", "age" 36}
+                        {"id" 2, "name" "alexon", "city" "BJ", "age" 30}
+                        {"id" 3, "name" "richard", "city" "SH", "age" 28}
                         ]
            "tbl_city" [
-                      {"city_code" "SH" "city_name" "ShangHai"}
-                      {"city_code" "BJ" "city_name" "BeiJing"}
+                      {"city_code" "SH", "city_name" "ShangHai"}
+                      {"city_code" "BJ", "city_name" "BeiJing"}
                       ]
            "tbl_position" [
-                      {"city_code" "SH" "position" "South"}
-                      {"city_code" "BJ" "position" "North"}
+                      {"city_code" "SH", "position" "South"}
+                      {"city_code" "BJ", "position" "North"}
                       ]
            })
 
@@ -41,33 +41,79 @@
         p (->Base "tbl_person")
         inner-select (->Select p `(:> ~(->Col p "id") 1))
         raw (->Select inner-select `(:< ~(->Col inner-select "id") 3))
-        expect (query-sql raw data)
-        actual (query-sql (convert-select-commutative raw) data)
+        expect (remove-data-table-prefix (query-sql raw data))
+        actual (remove-data-table-prefix (query-sql (convert-select-commutative raw) data))
         ]
     (is (= expect actual))
     ))
 
-(deftest test-convert-join-associative
+(deftest test-sql-convert-join-associative
   (let [
-        inner-join (->Join person city {(->Col person "city") (->Col city "city_code")})
-        raw (->Join inner-join position {(->Col inner-join "city_code") (->Col position "city_code")})
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        pos (->Base "tbl_position")
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")})
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")})
         actual (to-sql (convert-join-associative raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN (SELECT * FROM tbl_city AS tbl_city0 JOIN tbl_position AS tbl_position0 ON tbl_city0.city_code = tbl_position0.city_code) AS j0 ON tbl_person0.city = j0.city_code"] 
     (is (= expect actual))
     ))
 
-(deftest test-convert-select-join-to-theta-join
+(deftest test-data-convert-join-associative
   (let [
-        raw (->Select (->Join person city {"city" "city_code"}) '(:> "id" 2))
-        actual (to-sql (convert-select-join-to-theta-join raw))
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code WHERE id > 2"] 
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        pos (->Base "tbl_position")
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")})
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")})
+        expect (remove-data-table-prefix (query-sql raw data))
+        actual (remove-data-table-prefix (query-sql (convert-join-associative raw) data))
+        ]
     (is (= expect actual))
     ))
 
-(deftest test-convert-select-theta-join-to-theta-join
+(deftest test-sql-convert-select-join-to-theta-join
   (let [
-        raw (->Select (->ThetaJoin person city {"city" "city_code"} '(:> "id" 2)) '(:< "id" 10))
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")})
+        raw (->Select inner `(:> ~(->Col inner "id") 2))
+        actual (to-sql (convert-select-join-to-theta-join raw))
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE j0.id > 2"] 
+    (is (= expect actual))
+    ))
+
+(deftest test-data-convert-select-join-to-theta-join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")})
+        raw (->Select inner `(:> ~(->Col inner "id") 2))
+        expect (remove-data-table-prefix (query-sql raw data))
+        actual (remove-data-table-prefix (query-sql (convert-select-join-to-theta-join raw) data))
+        ] 
+    (is (= expect actual))
+    ))
+
+(deftest test-sql-convert-select-theta-join-to-theta-join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        raw (->Select inner `(:< ~(->Col inner "id") 10))
         actual (to-sql (convert-select-theta-join-to-theta-join raw))
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON city = city_code WHERE (id < 10) and (id > 2)"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (id < 10) and (id > 2)"] 
+    (is (= expect actual))
+    ))
+
+(deftest test-data-convert-select-theta-join-to-theta-join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        raw (->Select inner `(:< ~(->Col inner "id") 10))
+        expect (remove-data-table-prefix (query-sql raw data))
+        actual (remove-data-table-prefix (query-sql (convert-select-theta-join-to-theta-join raw) data))
+        ]
     (is (= expect actual))
     ))

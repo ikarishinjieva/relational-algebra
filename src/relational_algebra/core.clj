@@ -121,6 +121,14 @@
 (defn update-map-kv [m f & args]
  (reduce (fn [r [k v]] (assoc r (apply f k args) (apply f v args))) {} m))
 
+(defn update-map-k [m f & args]
+ (reduce (fn [r [k v]] (assoc r (apply f k args) v)) {} m))
+
+(defn remove-data-table-prefix [rows]
+  (let [
+        remove-prefix-fn (fn [k] (last (str/split k #"\.")))]
+    (map #(update-map-k %1 remove-prefix-fn) rows)))
+
 (defn replace-tbl-on-fn-desc [condition tbl-mapping]
   (apply list (map 
     #(if (satisfies? IRelation %1) 
@@ -256,14 +264,17 @@
             col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
             cond-fn ((first condition) sql-functions)
             cond-args (rest condition)
-            match-fn (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args)))
+            filter-fn (fn [row] 
+                        (let [queried-args (map #(query-sub-sql ctx % row) cond-args)]
+                          (log/debugf "theta-join filter: (%s %s), row: %s" (first condition) (pr-str queried-args) (pr-str row))
+                          (apply cond-fn queried-args)))
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
                            join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
-                                                           (if (match-fn new-row) (conj ret new-row))))
+                                                           (if (filter-fn new-row) (conj ret new-row))))
                            ]
                        (if join-rows-in-right-tbl
                          (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
