@@ -102,7 +102,7 @@
         inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         actual (to-sql (convert-select-theta-join-to-theta-join raw))
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (id < 10) and (id > 2)"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (tj0.id < 10) and (tbl_person0.id > 2)"] 
     (is (= expect actual))
     ))
 

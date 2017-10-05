@@ -63,7 +63,7 @@
         join (:tbl sel)
         sel-cond (:condition sel)
         join-cond (:condition join)
-        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) (list :and sel-cond join-cond))
+        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond))
         ]
     (identity new-join))
   )

@@ -130,7 +130,7 @@
     (map #(update-map-k %1 remove-prefix-fn) rows)))
 
 (defn replace-tbl-on-fn-desc [condition tbl-mapping]
-  (apply list (map 
+  (seq (map 
     #(if (satisfies? IRelation %1) 
        (replace-tbl %1 tbl-mapping)
        %1)
@@ -181,14 +181,7 @@
   (query-data [this ctx data is-sub] 
          (let 
            [tbl-data (query-sub-sql ctx tbl data)
-            cond-fn ((first condition) sql-functions)
-            cond-args (rest condition)
-            ;TODO Col should be checked if it related to tbl or not in cond-args
-            filter-fn (fn [row] 
-                        (let [queried-args (map #(query-sub-sql ctx % row) cond-args)]
-                          (log/debugf "select filter: (%s %s), row: %s" (first condition) (pr-str queried-args) (pr-str row))
-                          (apply cond-fn queried-args)))
-            raw-data (filter filter-fn tbl-data)
+            raw-data (filter #(query-sub-sql ctx condition %1) tbl-data)
             ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
@@ -262,19 +255,13 @@
             right-tbl-col-names (map sql (vals col-matches))
             right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
             col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
-            cond-fn ((first condition) sql-functions)
-            cond-args (rest condition)
-            filter-fn (fn [row] 
-                        (let [queried-args (map #(query-sub-sql ctx % row) cond-args)]
-                          (log/debugf "theta-join filter: (%s %s), row: %s" (first condition) (pr-str queried-args) (pr-str row))
-                          (apply cond-fn queried-args)))
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
                            join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
-                                                           (if (filter-fn new-row) (conj ret new-row))))
+                                                           (if (query-sub-sql ctx condition new-row) (conj ret new-row))))
                            ]
                        (if join-rows-in-right-tbl
                          (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
@@ -329,10 +316,7 @@
             
             has-cond (not (empty? condition))
             match-fn (if has-cond
-                       (let [
-                             cond-fn (if has-cond ((first condition) sql-functions))
-                             cond-args (if has-cond (rest condition))
-                             ] (fn [row] (apply cond-fn (map #(query-sub-sql ctx % row) cond-args))))
+                       #(query-sub-sql ctx condition %1)
                        identity)
             tbl-data-filtered (filter match-fn tbl-data)
             
@@ -420,6 +404,15 @@
 (defmethod query Apply [ctx apply data is-sub] (query-data apply ctx data is-sub))
 (defmethod query Col [ctx col data is-sub] (query-data col ctx data is-sub))
 (defmethod query java.lang.String [ctx str _ _] (identity str))
+(defmethod query clojure.lang.Cons [ctx condition row _]  ;condition
+  (let [
+        cond-fn-name (first condition)
+        cond-fn (cond-fn-name sql-functions)
+        cond-args (rest condition)
+        queried-args (map #(query-sub-sql ctx % row) cond-args)
+        ]
+        (log/debugf "query condition: (%s %s), row: %s" cond-fn-name (pr-str queried-args) (pr-str row))
+        (apply cond-fn queried-args)))
 
 (defn query-sql [op data]
   (log/debugf "query (%s)" (type op))
