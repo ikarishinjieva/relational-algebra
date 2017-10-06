@@ -16,7 +16,8 @@
   (sql [this])
   (query-data [this data is-sub])
   (as-name [this])
-  (replace-tbl [this tbl-mapping]))
+  (replace-tbl [this tbl-mapping])
+  (involve-tbl? [this matching-tbl]))
 
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
@@ -102,7 +103,9 @@
           (get updated-prefix-row col-name)))
   (replace-tbl [this tbl-mapping]
                (let [new-tbl (get tbl-mapping tbl tbl)]
-                   (->Col new-tbl col))))
+                   (->Col new-tbl col)))
+  (involve-tbl? [this matching-tbl]
+                (involve-tbl? tbl matching-tbl)))
 
 (defmethod cond-to-str Col [col is_nest] 
   (sql col))
@@ -128,6 +131,13 @@
        %1)
     condition)))
 
+(defn involve-tbl-on-fn-desc? [condition matching-tbl]
+  (some true? (map 
+    #(if (satisfies? IRelation %1) 
+       (involve-tbl? %1 matching-tbl)
+       false)
+    condition)))
+
 (defrecord Base [tbl]
   IRelation
   (sql [this] 
@@ -140,7 +150,9 @@
   (as-name [_] 
          (str (name tbl) (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (get tbl-mapping this this)))
+               (get tbl-mapping this this))
+  (involve-tbl? [this matching-tbl]
+                (= this matching-tbl)))
 
 (defrecord Project [tbl cols]
   IRelation
@@ -159,7 +171,9 @@
          (as-name tbl))
   (replace-tbl [this tbl-mapping]
                (let [new-tbl (replace-tbl tbl tbl-mapping)]
-                   (->Project new-tbl cols))))
+                   (->Project new-tbl cols)))
+  (involve-tbl? [this matching-tbl]
+                (involve-tbl? tbl matching-tbl)))
 
 (defrecord Select [tbl condition]
   IRelation
@@ -183,7 +197,12 @@
                      new-tbl (replace-tbl tbl tbl-mapping)
                      new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
                      ]
-                 (->Select new-tbl new-condition))))
+                 (->Select new-tbl new-condition)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? tbl matching-tbl)
+                      (involve-tbl-on-fn-desc? condition matching-tbl)
+                      ])))
 
 (defrecord Join [left-tbl right-tbl col-matches]
   IRelation
@@ -192,9 +211,12 @@
              left-tbl-str (to-sub-sql left-tbl)
              right-tbl-str (to-sub-sql right-tbl)
              col-str (col-matches-to-str col-matches)
+             join-str (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str)
              ]
-         (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str)
-         ))
+         (if (empty? col-matches)
+           join-str
+           (str join-str " ON " col-str)
+         )))
   (query-data [this data is-sub] 
          (let 
            [
@@ -223,7 +245,12 @@
                      new-right-tbl (replace-tbl right-tbl tbl-mapping)
                      new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
                      ]
-                   (->Join new-left-tbl new-right-tbl new-col-matches))))
+                   (->Join new-left-tbl new-right-tbl new-col-matches)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? left-tbl matching-tbl)
+                      (involve-tbl? right-tbl matching-tbl)
+                      ])))
 
 (defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
   IRelation
@@ -269,7 +296,13 @@
                      new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
                      new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
                      ]
-                   (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition))))
+                   (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? left-tbl matching-tbl)
+                      (involve-tbl? right-tbl matching-tbl)
+                      (involve-tbl-on-fn-desc? condition matching-tbl)
+                      ])))
 
 (defn aggr-avg [items key] 
   (let [
@@ -333,7 +366,13 @@
                      new-aggr-fn-desc (replace-tbl-on-fn-desc aggr-fn-desc tbl-mapping)
                      new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
                      ]
-                   (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition))))
+                   (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? tbl matching-tbl)
+                      (involve-tbl-on-fn-desc? aggr-fn-desc matching-tbl)
+                      (involve-tbl-on-fn-desc? condition matching-tbl)
+                      ])))
 
 ; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
 (defrecord Apply [relation expr]
@@ -360,7 +399,12 @@
                      new-relation (replace-tbl relation tbl-mapping)
                      new-expr (replace-tbl expr tbl-mapping)
                      ]
-                   (->Apply new-relation new-expr))))
+                   (->Apply new-relation new-expr)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? relation matching-tbl)
+                      (involve-tbl? expr matching-tbl)
+                      ])))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))

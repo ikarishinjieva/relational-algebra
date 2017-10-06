@@ -111,3 +111,25 @@
         ]
     (is (= expect actual))
     ))
+
+(deftest test-sql-convert-apply_whose_expr_not_resolved_from_relation-to-join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        appl (->Apply c aggr)
+        actual (to-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl))
+        expect "SELECT * FROM tbl_city AS tbl_city0 JOIN (SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2) AS a0"] 
+    (is (= expect actual))
+    ))
+
+(deftest test-data-convert-apply_whose_expr_not_resolved_from_relation-to-join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        appl (->Apply c aggr)
+        expect (remove-data-table-prefix (query-sql appl data))
+        actual (remove-data-table-prefix (query-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl) data))]
+    (is (= expect actual))
+    ))

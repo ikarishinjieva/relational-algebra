@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Select Join ThetaJoin])
+  (:import [relational_algebra.core Select Join ThetaJoin Apply])
   )
 
 (defn convert-select-commutative [sel]
@@ -64,6 +64,19 @@
         sel-cond (:condition sel)
         join-cond (:condition join)
         new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond))
+        ]
+    (identity new-join))
+  )
+
+(defn convert-apply_whose_expr_not_resolved_from_relation-to-join [appl]
+  {:pre  [
+          (instance? Apply appl)
+          (not (involve-tbl? (:expr appl) (:relation appl)))
+          ]}
+  (let [
+        expr (:expr appl)
+        rel (:relation appl)
+        new-join (->Join rel expr {})
         ]
     (identity new-join))
   )
