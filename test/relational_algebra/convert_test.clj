@@ -66,48 +66,48 @@
     (is (= expect actual))
     ))
 
-(deftest test-sql-convert-select-join-to-theta-join
+(deftest test-sql-convert-select_join-to-theta_join
   (let [
         p (->Base "tbl_person")
         c (->Base "tbl_city")
         inner (->Join p c {(->Col p "city") (->Col c "city_code")})
         raw (->Select inner `(:> ~(->Col inner "id") 2))
-        actual (to-sql (convert-select-join-to-theta-join raw))
+        actual (to-sql (convert-select_join-to-theta_join raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE j0.id > 2"] 
     (is (= expect actual))
     ))
 
-(deftest test-data-convert-select-join-to-theta-join
+(deftest test-data-convert-select_join-to-theta_join
   (let [
         p (->Base "tbl_person")
         c (->Base "tbl_city")
         inner (->Join p c {(->Col p "city") (->Col c "city_code")})
         raw (->Select inner `(:> ~(->Col inner "id") 2))
         expect (remove-data-table-prefix (query-sql raw data))
-        actual (remove-data-table-prefix (query-sql (convert-select-join-to-theta-join raw) data))
+        actual (remove-data-table-prefix (query-sql (convert-select_join-to-theta_join raw) data))
         ] 
     (is (= expect actual))
     ))
 
-(deftest test-sql-convert-select-theta-join-to-theta-join
+(deftest test-sql-convert-select_theta_join-to-theta_join
   (let [
         p (->Base "tbl_person")
         c (->Base "tbl_city")
         inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         raw (->Select inner `(:< ~(->Col inner "id") 10))
-        actual (to-sql (convert-select-theta-join-to-theta-join raw))
+        actual (to-sql (convert-select_theta_join-to-theta_join raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (tj0.id < 10) and (tbl_person0.id > 2)"] 
     (is (= expect actual))
     ))
 
-(deftest test-data-convert-select-theta-join-to-theta-join
+(deftest test-data-convert-select_theta_join-to-theta_join
   (let [
         p (->Base "tbl_person")
         c (->Base "tbl_city")
         inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         expect (remove-data-table-prefix (query-sql raw data))
-        actual (remove-data-table-prefix (query-sql (convert-select-theta-join-to-theta-join raw) data))
+        actual (remove-data-table-prefix (query-sql (convert-select_theta_join-to-theta_join raw) data))
         ]
     (is (= expect actual))
     ))

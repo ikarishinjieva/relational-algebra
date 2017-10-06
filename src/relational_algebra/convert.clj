@@ -41,7 +41,7 @@
   )
 
 ; select(join(e1,e2)) -> theta-join(e1,e2)
-(defn convert-select-join-to-theta-join [sel]
+(defn convert-select_join-to-theta_join [sel]
   {:pre  [
           (instance? Select sel)
           (instance? Join (:tbl sel))
@@ -54,7 +54,7 @@
   )
 
 ; select[c1](theta-join[c2](e1,e2)) -> theta-join[c1 and c2](e1,e2)
-(defn convert-select-theta-join-to-theta-join [sel]
+(defn convert-select_theta_join-to-theta_join [sel]
   {:pre  [
           (instance? Select sel)
           (instance? ThetaJoin (:tbl sel))
