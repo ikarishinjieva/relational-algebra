@@ -336,7 +336,7 @@
                    (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition))))
 
 ; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
-(defrecord Apply [relation apply-tbl-name expr]
+(defrecord Apply [relation expr]
   IRelation
   (sql [_]
        )
@@ -360,7 +360,7 @@
                      new-relation (replace-tbl relation tbl-mapping)
                      new-expr (replace-tbl expr tbl-mapping)
                      ]
-                   (->Apply new-relation apply-tbl-name new-expr))))
+                   (->Apply new-relation new-expr))))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))

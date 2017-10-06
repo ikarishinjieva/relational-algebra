@@ -186,7 +186,7 @@
         p (->Base "tbl_person")
         c (->Base "tbl_city")
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c "apply-tbl-name-no-use" aggr)
+        appl (->Apply c aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 28, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 28, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
@@ -197,10 +197,8 @@
   (let [
         p (->Base "tbl_person")
         c (->Base "tbl_city")
-        apply-tbl-name (str "tbl_apply_c_" (gen-table-name-seq))
-        apply-tbl (->Base (keyword apply-tbl-name))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c apply-tbl-name aggr)
+        appl (->Apply c aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]
