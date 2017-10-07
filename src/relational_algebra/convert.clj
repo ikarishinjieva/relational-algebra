@@ -68,6 +68,8 @@
     (identity new-join))
   )
 
+; Rule 1 of <Orthogonal Optimization of Subqueries and Aggregation>
+; Apply(R, E) -> Join(R, E) if E is not resolved from R
 (defn convert-apply_whose_expr_not_resolved_from_relation-to-join [appl]
   {:pre  [
           (instance? Apply appl)
@@ -81,7 +83,8 @@
     (identity new-join))
   )
   
-
+; Rule 2 of <Orthogonal Optimization of Subqueries and Aggregation>
+; Apply(R, Select[p](E)) -> ThetaJoin[p](R, E)
 (defn convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join [appl]
   {:pre  [
           (instance? Apply appl)
