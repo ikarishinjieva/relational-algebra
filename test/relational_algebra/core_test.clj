@@ -14,9 +14,14 @@
                       ]
            })
 
+(def metas {
+           "tbl_person" ["id", "name", "city", "age"],
+           "tbl_city" ["city_code", "city_name"],
+           })
+
 (deftest to-sql-base
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         actual (to-sql p)
         expect "tbl_person"] 
     (is (= expect actual))
@@ -24,7 +29,7 @@
 
 (deftest to-sql-project
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         proj (->Project p `(~(->Col p "id") ~(->Col p "name")))
         actual (to-sql proj)
         expect "SELECT tbl_person0.id, tbl_person0.name FROM tbl_person AS tbl_person0"] 
@@ -33,7 +38,7 @@
 
 (deftest to-sql-select
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         sel (->Select p `(:> ~(->Col p "id") 10))
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 10"] 
@@ -42,7 +47,7 @@
 
 (deftest to-sql-select-select
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         sel (->Select (->Select p `(:> ~(->Col p "id") 10)) `(:< ~(->Col p "id") 30))
         actual (to-sql sel)
         expect "SELECT * FROM (SELECT * FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 10) AS s0 WHERE tbl_person0.id < 30"] 
@@ -51,7 +56,7 @@
 
 (deftest to-sql-select-and
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         sel (->Select p `(:and (:> ~(->Col p "id") 10) (:< ~(->Col p "id") 30)))
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 WHERE (tbl_person0.id > 10) and (tbl_person0.id < 30)"] 
@@ -60,8 +65,8 @@
 
 (deftest to-sql-join
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         sel (->Join p c {(->Col p "city") (->Col c "city_code")})
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
@@ -70,8 +75,8 @@
 
 (deftest to-sql-theta-join
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         sel (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE tbl_person0.id > 2"] 
@@ -80,7 +85,7 @@
 
 (deftest to-sql-vector-aggregate
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         aggr (->Aggregate p [(->Col p "city")] `(:avg ~(->Col p "age")) '())
         actual (to-sql aggr)
         expect "SELECT tbl_person0.city, avg(tbl_person0.age) FROM tbl_person AS tbl_person0 GROUP BY tbl_person0.city"] 
@@ -89,7 +94,7 @@
 
 (deftest to-sql-scalar-aggregate
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
         actual (to-sql aggr)
         expect "SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2"] 
@@ -98,7 +103,7 @@
 
 (deftest query-sql-base
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         actual (query-sql p data)
         expect '(
                  {"id" 1, "name" "alex", "city" "SH", "age" 36} 
@@ -109,27 +114,16 @@
 
 (deftest query-sql-project
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         proj (->Project p `(~(->Col p "id")))
         actual (query-sql proj data)
         expect [{"tbl_person0.id" 1} {"tbl_person0.id" 2} {"tbl_person0.id" 3}]] 
     (is (= expect actual))
     ))
 
-(deftest query-sql-project-with-all-match
-  (let [
-        p (->Base "tbl_person")
-        proj (->Project p `(~(->Col p "*")))
-        actual (query-sql proj data)
-        expect [{"tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36} 
-                {"tbl_person0.id" 2, "tbl_person0.name" "alexon", "tbl_person0.city" "BJ", "tbl_person0.age" 30} 
-                {"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}]] 
-    (is (= expect actual))
-    ))
-
 (deftest query-sql-select
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         sel (->Select p `(:> ~(->Col p "id") 2))
         actual (query-sql sel data)
         expect [{"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}]] 
@@ -138,7 +132,7 @@
 
 (deftest query-sql-select-select
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         sub-p (->Select p `(:> ~(->Col p "id") 1))
         sel (->Select sub-p `(:< ~(->Col sub-p "id") 3))
         actual (query-sql sel data)
@@ -148,8 +142,8 @@
 
 (deftest query-sql-join
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         sel (->Join p c {(->Col p "city") (->Col c "city_code")})
         actual (query-sql sel data)
         expect [
@@ -162,8 +156,8 @@
 
 (deftest query-sql-theta-join
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         sel (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         actual (query-sql sel data)
         expect [
@@ -174,7 +168,7 @@
 
 (deftest query-sql-aggregate
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         aggr (->Aggregate p [(->Col p "city")] `(:avg ~(->Col p "age")) '())
         actual (query-sql aggr data)
         expect [{"tbl_person0.city" "SH", "avg(tbl_person0.age)" 32} {"tbl_person0.city" "BJ", "avg(tbl_person0.age)" 30}]
@@ -184,7 +178,7 @@
 
 (deftest query-sql-aggregate-with-condition
   (let [
-        p (->Base "tbl_person")
+        p (->Base "tbl_person" (get metas "tbl_person"))
         aggr (->Aggregate p [(->Col p "city")] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") "SH"))
         actual (query-sql aggr data)
         expect [{"tbl_person0.city" "SH", "avg(tbl_person0.age)" 32}]
@@ -194,8 +188,8 @@
 
 (deftest query-sql-apply-whose-relation-and-expr-has-no-relation
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
         appl (->Apply c aggr)
         actual (query-sql appl data)
@@ -206,8 +200,8 @@
 
 (deftest query-sql-apply-whose-relation-and-expr-has-relation
   (let [
-        p (->Base "tbl_person")
-        c (->Base "tbl_city")
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
         appl (->Apply c aggr)
         actual (query-sql appl data)
