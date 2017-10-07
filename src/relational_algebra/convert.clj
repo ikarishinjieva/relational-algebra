@@ -81,3 +81,16 @@
     (identity new-join))
   )
   
+
+(defn convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join [appl]
+  {:pre  [
+          (instance? Apply appl)
+          (instance? Select (:expr appl))
+          ]}
+  (let [
+        sel (:expr appl)
+        rel (:relation appl)
+        new-join (->ThetaJoin rel (:tbl sel) {} (:condition sel))
+        ]
+    (identity new-join))
+  )

@@ -133,3 +133,14 @@
         actual (remove-data-table-prefix (query-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl) data))]
     (is (= expect actual))
     ))
+
+(deftest test-data-convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
+  (let [
+        p (->Base "tbl_person")
+        c (->Base "tbl_city")
+        expr (->Select p `(:> ~(->Col p "id") 2))
+        appl (->Apply c expr)
+        expect (remove-data-table-prefix (query-sql appl data))
+        actual (remove-data-table-prefix (query-sql (convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join appl) data))]
+    (is (= expect actual))
+    ))
