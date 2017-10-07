@@ -20,6 +20,11 @@
   (involve-tbl? [this matching-tbl])
   (meta-cols [this]))
 
+(defprotocol IAggregate
+  (scalar-aggr? [this])
+  (vector-aggr? [this]))
+  
+
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
       prefix (if (str/blank? tbl) "" (str tbl "."))
@@ -389,6 +394,9 @@
 (def aggr-functions {:avg aggr-avg})
 
 (defrecord Aggregate [tbl group-cols aggr-fn-desc condition]
+  IAggregate
+  (scalar-aggr? [this] (empty? group-cols))
+  (vector-aggr? [this] (not (scalar-aggr? this)))
   IRelation
   (sql [_]
        (let 
@@ -456,8 +464,8 @@
                           ]
                       (conj group-cols aggr-fn-str))))
 
-; Apply = { foreach (rel in relation) { return join(rel, expr(rel)) } }
-(defrecord Apply [relation expr]
+; Apply = { foreach (rel in relation) { return op(rel, expr(rel)) } }
+(defrecord Apply [relation expr op-ctor]
   IRelation
   (sql [_]
        )
@@ -465,7 +473,8 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       joined (->Join relation expr {})
+                                       debug (print op-ctor "\n")
+                                       joined (op-ctor relation expr {})
                                        applied-joined (replace-tbl joined {relation (->MockTbl [row])})
                                        ]
                                    (query-sub-sql applied-joined data)))
@@ -481,7 +490,7 @@
                      new-relation (replace-tbl relation tbl-mapping)
                      new-expr (replace-tbl expr tbl-mapping)
                      ]
-                   (->Apply new-relation new-expr)))
+                   (->Apply new-relation new-expr op-ctor)))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? relation matching-tbl)

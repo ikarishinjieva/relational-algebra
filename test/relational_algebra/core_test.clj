@@ -216,7 +216,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr)
+        appl (->Apply c aggr ->Join)
         actual (query-sql appl data)
         expect [
                 {"avg(j0.age)" 28, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
@@ -231,7 +231,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c aggr)
+        appl (->Apply c aggr ->Join)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
         ]

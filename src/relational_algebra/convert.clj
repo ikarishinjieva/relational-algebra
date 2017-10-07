@@ -109,7 +109,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl sel))
+        new-apply (->Apply rel (:tbl sel) (:op-ctor appl))
         new-sel (->Select new-apply (:condition sel))
         ]
     (identity new-sel))
@@ -125,7 +125,7 @@
   (let [
         proj (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl proj))
+        new-apply (->Apply rel (:tbl proj) (:op-ctor appl))
         rel-cols (map #(->Col rel %) (meta-cols rel))
         new-cols-raw (apply conj (:cols proj) rel-cols)
         new-cols-with-replaced-tbl (replace-tbl-on-fn-desc new-cols-raw {
