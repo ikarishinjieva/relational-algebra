@@ -90,7 +90,7 @@
 (defrecord Col [tbl col]
   IRelation
   (sql [_] 
-       (str (as-name tbl) "." (name col)))
+       (str (as-name tbl) "." col))
   (query-data [this row _] 
         (let [
               r (if (instance? MockTbl tbl) 
@@ -163,8 +163,15 @@
   (query-data [this data is-sub] 
          (let [
                tbl-data (query-sub-sql tbl data)
-               col-names (map sql cols)
-               raw-data (map #(select-keys % col-names) tbl-data)
+               col-str-match-col-fn (fn [col col-str]
+                                        (if (= "*" (:col col))
+                                          (str/starts-with? col-str (str (as-name tbl) "."))
+                                          (= col-str (str (as-name tbl) "." col))))
+               filter-col-fn (fn [kv] (let [col-str (first kv)]
+                                        (some #(col-str-match-col-fn % col-str) cols)))
+               filter-row-fn (fn [row] 
+                               (apply array-map (flatten (filter filter-col-fn row))))
+               raw-data (map filter-row-fn tbl-data)
                ]
            (update-row-tbl-prefix this is-sub raw-data)))
   (as-name [_] 
