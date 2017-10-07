@@ -98,3 +98,19 @@
         ]
     (identity new-join))
   )
+
+; Rule 3 of <Orthogonal Optimization of Subqueries and Aggregation>
+; Apply(R, Select[p](E)) -> Select[p](Apply(R, E))
+(defn convert-apply_select-to-select_apply [appl]
+  {:pre  [
+          (instance? Apply appl)
+          (instance? Select (:expr appl))
+          ]}
+  (let [
+        sel (:expr appl)
+        rel (:relation appl)
+        new-apply (->Apply rel (:tbl sel))
+        new-sel (->Select new-apply (:condition sel))
+        ]
+    (identity new-sel))
+  )
