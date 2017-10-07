@@ -89,6 +89,7 @@
   {:pre  [
           (instance? Apply appl)
           (instance? Select (:expr appl))
+          (not (involve-tbl? (:tbl (:expr appl)) (:relation appl)))
           ]}
   (let [
         sel (:expr appl)

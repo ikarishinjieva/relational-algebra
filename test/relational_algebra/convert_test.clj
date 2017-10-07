@@ -134,6 +134,8 @@
     (is (= expect actual))
     ))
 
+;TODO test-sql-convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
+
 (deftest test-data-convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
   (let [
         p (->Base "tbl_person")
