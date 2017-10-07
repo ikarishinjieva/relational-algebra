@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Select Join ThetaJoin Apply Project])
+  (:import [relational_algebra.core Select Join ThetaJoin Apply Project Aggregate])
   )
 
 (defn convert-select-commutative [sel]
@@ -135,4 +135,27 @@
         new-proj (->Project new-apply new-cols-with-replaced-tbl)
         ]
     (identity new-proj))
+  )
+
+
+; Rule 9 of <Orthogonal Optimization of Subqueries and Aggregation>
+; Apply(R, Aggregate[null, F](E), Join) -> Aggregate[R.cols, F'](Apply(R, E, Left-Join))
+(defn convert-apply_scalar_aggregate-to-vector_aggregate_apply [appl]
+  {:pre  [
+          (instance? Apply appl)
+          (instance? Aggregate (:expr appl))
+          (scalar-aggr? (:expr appl))
+          ]}
+  (let [
+        rel (:relation appl)
+        aggr (:expr appl)
+        aggr-fn (:aggr-fn-desc aggr)
+        aggr-tbl (:tbl aggr)
+        new-apply (->Apply rel (:tbl aggr) ->LeftJoin)
+        new-group-cols (map #(->Col new-apply %) (meta-cols rel))
+        new-aggr-fn-desc (replace-tbl-on-fn-desc (:aggr-fn-desc aggr) {aggr new-apply}) ;TODO: F, like count(*), should be convert to F', like count(col)
+        new-cond (replace-tbl-on-fn-desc (:condition aggr) {aggr new-apply})
+        new-aggr (->Aggregate new-apply new-group-cols new-aggr-fn-desc new-cond)
+        ]
+    (identity new-aggr))
   )

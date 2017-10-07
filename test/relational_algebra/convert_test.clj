@@ -178,3 +178,16 @@
         actual (remove-data-table-prefix (query-sql (convert-apply_project-to-project_apply appl) data))]
     (is (= expect actual))
     ))
+
+;TODO test-sql-convert-apply_scalar_aggregate-to-vector_aggregate_apply
+
+(deftest test-data-convert-apply_scalar_aggregate-to-vector_aggregate_apply
+  (let [
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        appl (->Apply c aggr ->LeftJoin)
+        expect (remove-data-table-prefix (query-sql appl data))
+        actual (remove-data-table-prefix (query-sql (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl) data))]
+    (is (= expect actual))
+    ))
