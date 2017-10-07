@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Select Join ThetaJoin Apply])
+  (:import [relational_algebra.core Select Join ThetaJoin Apply Project])
   )
 
 (defn convert-select-commutative [sel]
@@ -113,4 +113,26 @@
         new-sel (->Select new-apply (:condition sel))
         ]
     (identity new-sel))
+  )
+
+; Rule 4 of <Orthogonal Optimization of Subqueries and Aggregation>
+; Apply(R, Project[p](E)) -> Project[p union R.cols](Apply(R, E))
+(defn convert-apply_project-to-project_apply [appl]
+  {:pre  [
+          (instance? Apply appl)
+          (instance? Project (:expr appl))
+          ]}
+  (let [
+        proj (:expr appl)
+        rel (:relation appl)
+        new-apply (->Apply rel (:tbl proj))
+        rel-cols (map #(->Col rel %) (meta-cols rel))
+        new-cols-raw (apply conj (:cols proj) rel-cols)
+        new-cols-with-replaced-tbl (replace-tbl-on-fn-desc new-cols-raw {
+                                                                         (:tbl proj) new-apply
+                                                                         rel new-apply
+                                                                         })
+        new-proj (->Project new-apply new-cols-with-replaced-tbl)
+        ]
+    (identity new-proj))
   )
