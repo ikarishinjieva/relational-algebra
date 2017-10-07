@@ -232,7 +232,7 @@
                            join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
                            ]
                        (if join-rows-in-right-tbl 
-                         (reduce #(conj %1 (merge %2 row-in-left-tbl)) ret join-rows-in-right-tbl)
+                         (apply conj ret (reduce #(conj %1 (merge %2 row-in-left-tbl)) [] join-rows-in-right-tbl))
                          ret)))
                    [] left-tbl-data)
             ]
@@ -281,7 +281,7 @@
                                                            (if (query-sub-sql condition new-row) (conj ret new-row))))
                            ]
                        (if join-rows-in-right-tbl
-                         (reduce reduce-fn-if-row-match-cond ret join-rows-in-right-tbl)
+                         (apply conj ret (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl))
                          ret)))
                    [] left-tbl-data)
             ]
