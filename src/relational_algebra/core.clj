@@ -166,7 +166,7 @@
                col-str-match-col-fn (fn [col col-str]
                                         (if (= "*" (:col col))
                                           (str/starts-with? col-str (str (as-name tbl) "."))
-                                          (= col-str (str (as-name tbl) "." col))))
+                                          (= col-str (str (as-name tbl) "." (:col col)))))
                filter-col-fn (fn [kv] (let [col-str (first kv)]
                                         (some #(col-str-match-col-fn % col-str) cols)))
                filter-row-fn (fn [row] 
