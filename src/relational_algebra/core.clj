@@ -277,6 +277,56 @@
                       ]))
   (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
 
+
+(defrecord LeftJoin [left-tbl right-tbl col-matches]
+  IRelation
+  (sql [_] 
+       (let [
+             left-tbl-str (to-sub-sql left-tbl)
+             right-tbl-str (to-sub-sql right-tbl)
+             col-str (col-matches-to-str col-matches)
+             join-str (str "SELECT * FROM " left-tbl-str " LEFT JOIN " right-tbl-str)
+             ]
+         (if (empty? col-matches)
+           join-str
+           (str join-str " ON " col-str)
+         )))
+  (query-data [this data is-sub] 
+         (let 
+           [
+            left-tbl-data (query-sub-sql left-tbl data)
+            left-tbl-col-names (map sql (keys col-matches))
+            right-tbl-data (query-sub-sql right-tbl data)
+            right-tbl-col-names (map sql (vals col-matches))
+            right-tbl-data-indexes (array-index right-tbl-data right-tbl-col-names)
+            col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
+            joined-data (reduce (fn [ret row-in-left-tbl]
+                     (let [
+                           left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
+                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
+                           ]
+                       (if join-rows-in-right-tbl 
+                         (apply conj ret (reduce #(conj %1 (merge %2 row-in-left-tbl)) [] join-rows-in-right-tbl))
+                         (conj ret row-in-left-tbl))))
+                   [] left-tbl-data)
+            ]
+           (update-row-tbl-prefix this is-sub joined-data)))
+  (as-name [_] 
+         (str "lj" (gen-table-name-seq)))
+  (replace-tbl [this tbl-mapping]
+               (let [
+                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                     ]
+                   (->LeftJoin new-left-tbl new-right-tbl new-col-matches)))
+  (involve-tbl? [this matching-tbl]
+                (some true? [
+                      (involve-tbl? left-tbl matching-tbl)
+                      (involve-tbl? right-tbl matching-tbl)
+                      ]))
+  (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
+
 (defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
   IRelation
   (sql [_] 
@@ -445,6 +495,7 @@
 (defmethod to-sql Project [project] (sql project))
 (defmethod to-sql Select [select] (sql select))
 (defmethod to-sql Join [join] (sql join))
+(defmethod to-sql LeftJoin [join] (sql join))
 (defmethod to-sql ThetaJoin [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
 (defmethod to-sql Col [col] (sql col))
@@ -466,6 +517,7 @@
 (defmethod query Project [project data is-sub] (query-data project data is-sub))
 (defmethod query Select [sel data is-sub] (query-data sel data is-sub))
 (defmethod query Join [join data is-sub] (query-data join data is-sub))
+(defmethod query LeftJoin [join data is-sub] (query-data join data is-sub))
 (defmethod query ThetaJoin [join data is-sub] (query-data join data is-sub))
 (defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
 (defmethod query Apply [apply data is-sub] (query-data apply data is-sub))

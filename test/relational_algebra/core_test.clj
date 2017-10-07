@@ -11,6 +11,7 @@
            "tbl_city" [
                       {"city_code" "SH", "city_name" "ShangHai"}
                       {"city_code" "BJ", "city_name" "BeiJing"}
+                      {"city_code" "SZ", "city_name" "ShenZhen"}
                       ]
            })
 
@@ -70,6 +71,16 @@
         sel (->Join p c {(->Col p "city") (->Col c "city_code")})
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
+    (is (= expect actual))
+    ))
+
+(deftest to-sql-left-join
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        sel (->LeftJoin p c {(->Col p "city") (->Col c "city_code")})
+        actual (to-sql sel)
+        expect "SELECT * FROM tbl_person AS tbl_person0 LEFT JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
     (is (= expect actual))
     ))
 
@@ -154,6 +165,20 @@
     (is (= expect actual))
     ))
 
+(deftest query-sql-left-join
+  (let [
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        sel (->LeftJoin c p {(->Col c "city_code") (->Col p "city") })
+        actual (query-sql sel data)
+        expect [{"tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36, "tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai"}
+                {"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28, "tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai"}
+                {"tbl_person0.id" 2, "tbl_person0.name" "alexon", "tbl_person0.city" "BJ", "tbl_person0.age" 30, "tbl_city0.city_code" "BJ", "tbl_city0.city_name" "BeiJing"}
+                {"tbl_city0.city_code" "SZ", "tbl_city0.city_name" "ShenZhen"}
+                ]] 
+    (is (= expect actual))
+    ))
+
 (deftest query-sql-theta-join
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
@@ -193,7 +218,10 @@
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
         appl (->Apply c aggr)
         actual (query-sql appl data)
-        expect [{"avg(j0.age)" 28, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 28, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
+        expect [
+                {"avg(j0.age)" 28, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
+                {"avg(j0.age)" 28, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}
+                {"avg(j0.age)" 28, "j0.city_code" "SZ", "j0.city_name" "ShenZhen"}]
         ]
     (is (= expect actual))
     ))
