@@ -473,7 +473,6 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       debug (print op-ctor "\n")
                                        joined (op-ctor relation expr {})
                                        applied-joined (replace-tbl joined {relation (->MockTbl [row])})
                                        ]
