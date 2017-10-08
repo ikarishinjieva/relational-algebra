@@ -211,6 +211,16 @@
     (is (= expect actual))
     ))
 
+(deftest query-sql-aggregate-scalar-on-empty-tbl
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") "NOT_EXIST"))
+        actual (query-sql aggr data)
+        expect [{"avg(tbl_person0.age)" 0}]
+        ]
+    (is (= expect actual))
+    ))
+
 (deftest query-sql-apply-whose-relation-and-expr-has-no-relation
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))

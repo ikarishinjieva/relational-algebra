@@ -387,10 +387,10 @@
   (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
 
 (defn aggr-avg [items key] 
-  (let [
-        values (map #(query-sub-sql key %) items)
-        ]
-    (/ (apply + values) (count values))))
+  (if (empty? items)
+    0
+    (let [values (map #(query-sub-sql key %) items)]
+      (/ (apply + values) (count values)))))
 
 (defn aggr-sum [items key] 
   (let [
@@ -429,15 +429,18 @@
          (let 
            [
             tbl-data (query-sub-sql tbl data)
-            
             has-cond (not (empty? condition))
             filter-fn (if has-cond
                        #(query-sub-sql condition %1)
                        identity)
             tbl-data-filtered (filter filter-fn tbl-data)
-            
-            group-cols-names (map sql group-cols)
-            tbl-data-by-group (set/index tbl-data-filtered group-cols-names)
+            tbl-data-by-group (if (empty? group-cols)
+                                {{} tbl-data-filtered}
+                                (let [
+                                      group-cols-names (map sql group-cols)
+                                      ]
+                                  (set/index tbl-data-filtered group-cols-names)))
+                                
             aggr-fn-name (first aggr-fn-desc)
             aggr-fn (aggr-fn-name aggr-functions)
             aggr-fn-arg (first (rest aggr-fn-desc)) ; presume aggr-fn has 1 argument
