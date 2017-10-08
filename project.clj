@@ -8,7 +8,8 @@
                  [log4j/log4j "1.2.16" :exclusions [javax.mail/mail
                                                   javax.jms/jms
                                                   com.sun.jdmk/jmxtools
-                                                  com.sun.jmx/jmxri]]]
+                                                  com.sun.jmx/jmxri]]
+                 [aprint "0.1.3"]]
   :main ^:skip-aot relational-algebra.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
