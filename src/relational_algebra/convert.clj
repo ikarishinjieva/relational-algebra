@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Select Join ThetaJoin Apply Project Aggregate])
+  (:import [relational_algebra.core Base Select Join ThetaJoin Apply Project Aggregate])
   )
 
 (defn convert-select-commutative [sel]
@@ -15,6 +15,12 @@
         ]
     (identity new-sel))
   )
+
+(defn convert-base-to-select [base]
+  {:pre  [
+          (instance? Base base)
+          ]}
+  (->Select base `(:true)))
 
 ; (e1 join e2) join e3 -> e1 join (e2 join e3)
 ; TODO precondition: e12-e3-join-key is e1-e2-join-key??

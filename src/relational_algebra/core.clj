@@ -59,6 +59,7 @@
                     :< <
                     :and (fn [a b] (and a b))
                     := =
+                    :true (fn [] (identity true))
                     })
 
 (defmulti cond-to-str (fn [cond is_nest] (type cond)))
@@ -391,7 +392,15 @@
         ]
     (/ (apply + values) (count values))))
 
-(def aggr-functions {:avg aggr-avg})
+(defn aggr-sum [items key] 
+  (let [
+        values (map #(query-sub-sql key %) items)
+        ]
+    (apply + values)))
+
+(def aggr-functions {
+                     :avg aggr-avg
+                     :sum aggr-sum})
 
 (defrecord Aggregate [tbl group-cols aggr-fn-desc condition]
   IAggregate
@@ -532,7 +541,9 @@
 (defmethod query Col [col data is-sub] (query-data col data is-sub))
 (defmethod query java.lang.String [str _ _] (identity str))
 (defmethod query MockTbl [tbl data is-sub] (query-data tbl data is-sub))
-(defmethod query clojure.lang.Cons [condition row _]  ;condition
+(defmethod query clojure.lang.Cons [condition row is-sub]  ;condition
+  (query (apply list condition) row is-sub))
+(defmethod query clojure.lang.PersistentList [condition row _] ;condition
   (let [
         cond-fn-name (first condition)
         cond-fn (cond-fn-name sql-functions)

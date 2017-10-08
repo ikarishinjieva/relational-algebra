@@ -191,3 +191,13 @@
         actual (remove-data-table-prefix (query-sql (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl) data))]
     (is (= expect actual))
     ))
+
+;TODO test-sql-convert-base-to-select
+
+(deftest test-data-convert-base-to-select
+  (let [
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        expect (remove-data-table-prefix (query-sql c data))
+        actual (remove-data-table-prefix (query-sql (convert-base-to-select c) data))]
+    (is (= expect actual))
+    ))
