@@ -243,7 +243,9 @@
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
         appl (->Apply c aggr ->Join)
         actual (query-sql appl data)
-        expect [{"avg(j0.age)" 64/2, "j0.city_code" "SH", "j0.city_name" "ShangHai"} {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"}]
+        expect [{"avg(j0.age)" 32, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
+                {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"} 
+                {"avg(j0.age)" 0, "j0.city_code" "SZ", "j0.city_name" "ShenZhen"}]
         ]
     (is (= expect actual))
     ))

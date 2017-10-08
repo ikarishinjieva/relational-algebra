@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [relational-algebra.core :refer :all]
             [relational-algebra.convert :refer :all]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [aprint.core :refer :all]))
 
 (def data {
            "tbl_person" [
@@ -18,12 +19,26 @@
                       {"city_code" "SH", "position" "South"}
                       {"city_code" "BJ", "position" "North"}
                       ]
+           "tbl_tpch_customer" [
+                                {"custkey" "001"}
+                                {"custkey" "002"}
+                                {"custkey" "003"}
+                                ]
+           "tbl_tpch_order" [
+                             {"custkey" "001", "price" 102}
+                             {"custkey" "001", "price" 421}
+                             {"custkey" "002", "price" 178}
+                             {"custkey" "002", "price" 631}
+                             {"custkey" "004", "price" 555}
+                             ]
            })
 
 (def metas {
            "tbl_person" ["id", "name", "city", "age"],
            "tbl_city" ["city_code", "city_name"],
            "tbl_position" ["city_code", "position"]
+           "tbl_tpch_customer" ["custkey"]
+           "tbl_tpch_order" ["custkey", "price"]
            })
 
 (deftest test-sql-convert-select-commutative
@@ -185,7 +200,8 @@
   (let [
         c (->Base "tbl_city" (get metas "tbl_city"))
         p (->Base "tbl_person" (get metas "tbl_person"))
-        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        p-sel (->Select p `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        aggr (->Aggregate p-sel [] `(:avg ~(->Col p "age")) [])
         appl (->Apply c aggr ->LeftJoin)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl) data))]
@@ -201,3 +217,17 @@
         actual (remove-data-table-prefix (query-sql (convert-base-to-select c) data))]
     (is (= expect actual))
     ))
+
+(deftest test-tpch_case1-convert-apply_scalar_aggregate-to-vector_aggregate_apply
+  (let [
+      cust (->Base "tbl_tpch_customer" (get metas "tbl_tpch_customer"))
+      order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
+      order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
+      aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
+      appl (->Apply cust aggr ->Join)
+      expect (remove-data-table-prefix (query-sql appl data))
+      after-convert (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)
+      actual (remove-data-table-prefix (query-sql after-convert data))
+      ]
+    (is (= expect actual))
+  ))

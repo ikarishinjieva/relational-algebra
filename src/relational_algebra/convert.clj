@@ -151,17 +151,18 @@
           (instance? Apply appl)
           (instance? Aggregate (:expr appl))
           (scalar-aggr? (:expr appl))
+          (not (has-cond? (:expr appl)))
           ]}
   (let [
         rel (:relation appl)
         aggr (:expr appl)
         aggr-fn (:aggr-fn-desc aggr)
         aggr-tbl (:tbl aggr)
-        new-apply (->Apply rel (:tbl aggr) ->LeftJoin)
+        new-apply (->Apply rel aggr-tbl ->LeftJoin)
         new-group-cols (map #(->Col new-apply %) (meta-cols rel))
-        new-aggr-fn-desc (replace-tbl-on-fn-desc (:aggr-fn-desc aggr) {aggr new-apply}) ;TODO: F, like count(*), should be convert to F', like count(col)
-        new-cond (replace-tbl-on-fn-desc (:condition aggr) {aggr new-apply})
-        new-aggr (->Aggregate new-apply new-group-cols new-aggr-fn-desc new-cond)
+        new-aggr-fn-desc (replace-tbl-on-fn-desc (:aggr-fn-desc aggr) {aggr-tbl new-apply}) ;TODO: F, like count(*), should be convert to F', like count(col)
+        new-cond (replace-tbl-on-fn-desc (:condition aggr) {aggr-tbl new-apply})
+        new-aggr (->Aggregate new-apply new-group-cols new-aggr-fn-desc [])
         ]
     (identity new-aggr))
   )

@@ -1,7 +1,8 @@
 (ns relational-algebra.core
   (:require [clojure.string :as str] 
             [clojure.set :as set] 
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [aprint.core :refer :all]))
 
 (defmulti to-sql type)
 (declare to-sub-sql)
@@ -22,7 +23,8 @@
 
 (defprotocol IAggregate
   (scalar-aggr? [this])
-  (vector-aggr? [this]))
+  (vector-aggr? [this])
+  (has-cond? [this]))
   
 
 (defn make-tbl-prefix-mapping [cols tbl]
@@ -109,8 +111,9 @@
               ]
           (get updated-prefix-row col-name)))
   (replace-tbl [this tbl-mapping]
-               (let [new-tbl (get tbl-mapping tbl tbl)]
-                   (->Col new-tbl col)))
+               (get tbl-mapping this 
+                 (let [new-tbl (get tbl-mapping tbl tbl)]
+                     (->Col new-tbl col))))
   (involve-tbl? [this matching-tbl]
                 (involve-tbl? tbl matching-tbl))
   (meta-cols [this] (identity col)))
@@ -198,8 +201,9 @@
   (as-name [_] 
          (as-name tbl))
   (replace-tbl [this tbl-mapping]
-               (let [new-tbl (replace-tbl tbl tbl-mapping)]
-                   (->Project new-tbl cols)))
+               (get tbl-mapping this 
+                    (let [new-tbl (replace-tbl tbl tbl-mapping)]
+                      (->Project new-tbl cols))))
   (involve-tbl? [this matching-tbl]
                 (involve-tbl? tbl matching-tbl))
   (meta-cols [this] (map :col cols)))
@@ -222,11 +226,12 @@
   (as-name [_] 
          (str "s" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-tbl (replace-tbl tbl tbl-mapping)
-                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
-                     ]
-                 (->Select new-tbl new-condition)))
+               (get tbl-mapping this 
+                 (let [
+                       new-tbl (replace-tbl tbl tbl-mapping)
+                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                       ]
+                   (->Select new-tbl new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? tbl matching-tbl)
@@ -270,12 +275,13 @@
   (as-name [_] 
          (str "j" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
-                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
-                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
-                     ]
-                   (->Join new-left-tbl new-right-tbl new-col-matches)))
+               (get tbl-mapping this 
+                 (let [
+                       new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                       new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                       new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                       ]
+                     (->Join new-left-tbl new-right-tbl new-col-matches))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? left-tbl matching-tbl)
@@ -320,12 +326,13 @@
   (as-name [_] 
          (str "lj" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
-                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
-                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
-                     ]
-                   (->LeftJoin new-left-tbl new-right-tbl new-col-matches)))
+               (get tbl-mapping this 
+                 (let [
+                       new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                       new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                       new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                       ]
+                     (->LeftJoin new-left-tbl new-right-tbl new-col-matches))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? left-tbl matching-tbl)
@@ -371,13 +378,14 @@
   (as-name [_] 
          (str "tj" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-left-tbl (replace-tbl left-tbl tbl-mapping)
-                     new-right-tbl (replace-tbl right-tbl tbl-mapping)
-                     new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
-                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
-                     ]
-                   (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition)))
+               (get tbl-mapping this 
+                 (let [
+                       new-left-tbl (replace-tbl left-tbl tbl-mapping)
+                       new-right-tbl (replace-tbl right-tbl tbl-mapping)
+                       new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                       ]
+                     (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? left-tbl matching-tbl)
@@ -389,12 +397,14 @@
 (defn aggr-avg [items key] 
   (if (empty? items)
     0
-    (let [values (map #(query-sub-sql key %) items)]
+    (let [
+          values (replace {nil 0} (map #(query-sub-sql key %) items))
+          ]
       (/ (apply + values) (count values)))))
 
 (defn aggr-sum [items key] 
   (let [
-        values (map #(query-sub-sql key %) items)
+        values (replace {nil 0} (map #(query-sub-sql key %) items))
         ]
     (apply + values)))
 
@@ -406,6 +416,7 @@
   IAggregate
   (scalar-aggr? [this] (empty? group-cols))
   (vector-aggr? [this] (not (scalar-aggr? this)))
+  (has-cond? [this] (not (empty? condition)))
   IRelation
   (sql [_]
        (let 
@@ -451,18 +462,18 @@
                                                      (conj group-keys {aggred-key aggred})))
             aggred-data (map #(apply aggregate %) tbl-data-by-group)
             ]
-           (update-row-tbl-prefix this is-sub aggred-data)
-           ))
+           (update-row-tbl-prefix this is-sub aggred-data)))
   (as-name [_] 
          (str "a" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-tbl (replace-tbl tbl tbl-mapping)
-                     new-group-cols (map #(replace-tbl %1 tbl-mapping) group-cols)
-                     new-aggr-fn-desc (replace-tbl-on-fn-desc aggr-fn-desc tbl-mapping)
-                     new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
-                     ]
-                   (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition)))
+               (get tbl-mapping this 
+                 (let [
+                       new-tbl (replace-tbl tbl tbl-mapping)
+                       new-group-cols (map #(replace-tbl %1 tbl-mapping) group-cols)
+                       new-aggr-fn-desc (replace-tbl-on-fn-desc aggr-fn-desc tbl-mapping)
+                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
+                       ]
+                     (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? tbl matching-tbl)
@@ -497,11 +508,12 @@
   (as-name [_] 
          (str "ap" (gen-table-name-seq)))
   (replace-tbl [this tbl-mapping]
-               (let [
-                     new-relation (replace-tbl relation tbl-mapping)
-                     new-expr (replace-tbl expr tbl-mapping)
-                     ]
-                   (->Apply new-relation new-expr op-ctor)))
+               (get tbl-mapping this 
+                 (let [
+                       new-relation (replace-tbl relation tbl-mapping)
+                       new-expr (replace-tbl expr tbl-mapping)
+                       ]
+                     (->Apply new-relation new-expr op-ctor))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? relation matching-tbl)
