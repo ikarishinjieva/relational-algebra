@@ -109,7 +109,9 @@
               updated-prefix-row (update-prefix-fn r)
               col-name (sql this)
               ]
-          (get updated-prefix-row col-name)))
+          (or 
+            (get row col-name)
+            (get updated-prefix-row col-name))))
   (replace-tbl [this tbl-mapping]
                (get tbl-mapping this 
                  (let [new-tbl (get tbl-mapping tbl tbl)]
@@ -366,9 +368,10 @@
                            join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
-                                                           (if (query-sub-sql condition new-row) (conj ret new-row))))
+                                                           (if (query-sub-sql condition new-row) (conj ret new-row) ret)))
                            ]
                        (if join-rows-in-right-tbl
+                         ; (apply conj ret (reduce #(conj %1 (merge %2 row-in-left-tbl)) [] join-rows-in-right-tbl))
                          (apply conj ret (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl))
                          ret)))
                    [] left-tbl-data)

@@ -231,3 +231,27 @@
       ]
     (is (= expect actual))
   ))
+
+(deftest test-tpch-case1
+  "Q1 from <Orthogonal Optimization of Subqueries and Aggregation>:
+    SELECT C_CUSTKEY
+    FROM CUSTOMER
+    WHERE 1000000 <
+        (SELECT SUM(O_TOTALPRICE)
+        FROM ORDERS
+        WHERE O_CUSTKEY = C_CUSTKEY)"
+        (let [
+              cust (->Base "tbl_tpch_customer" (get metas "tbl_tpch_customer"))
+              order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
+              order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
+              aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
+              appl (->Apply cust aggr ->Join)
+              expect (remove-data-table-prefix (query-sql appl data))
+              
+              after-rule9 (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)
+              appl-after-rule2 (convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join (:tbl after-rule9))
+              after-rule2 (replace-tbl after-rule9 {(:tbl after-rule9) appl-after-rule2})
+              actual (remove-data-table-prefix (query-sql after-rule2 data))
+              ]
+          (is (= expect actual))
+        ))
