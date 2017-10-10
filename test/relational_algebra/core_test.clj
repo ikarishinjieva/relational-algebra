@@ -68,7 +68,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        sel (->Join p c {(->Col p "city") (->Col c "city_code")})
+        sel (->Join p c {(->Col p "city") (->Col c "city_code")} [])
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
     (is (= expect actual))
@@ -78,7 +78,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        sel (->LeftJoin p c {(->Col p "city") (->Col c "city_code")})
+        sel (->LeftJoin p c {(->Col p "city") (->Col c "city_code")} [])
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 LEFT JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code"]
     (is (= expect actual))
@@ -88,7 +88,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        sel (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        sel (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         actual (to-sql sel)
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE tbl_person0.id > 2"] 
     (is (= expect actual))
@@ -155,7 +155,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        sel (->Join p c {(->Col p "city") (->Col c "city_code")})
+        sel (->Join p c {(->Col p "city") (->Col c "city_code")} [])
         actual (query-sql sel data)
         expect [
                 {"tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai", "tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36} 
@@ -169,7 +169,7 @@
   (let [
         c (->Base "tbl_city" (get metas "tbl_city"))
         p (->Base "tbl_person" (get metas "tbl_person"))
-        sel (->LeftJoin c p {(->Col c "city_code") (->Col p "city") })
+        sel (->LeftJoin c p {(->Col c "city_code") (->Col p "city")} [])
         actual (query-sql sel data)
         expect [{"tbl_person0.id" 1, "tbl_person0.name" "alex", "tbl_person0.city" "SH", "tbl_person0.age" 36, "tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai"}
                 {"tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28, "tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai"}
@@ -183,7 +183,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        sel (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        sel (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         actual (query-sql sel data)
         expect [
                 {"tbl_city0.city_code" "SH", "tbl_city0.city_name" "ShangHai", "tbl_person0.id" 3, "tbl_person0.name" "richard", "tbl_person0.city" "SH", "tbl_person0.age" 28}

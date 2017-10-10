@@ -21,11 +21,12 @@
   (involve-tbl? [this matching-tbl])
   (meta-cols [this]))
 
+(defprotocol ICondition
+  (has-cond? [this]))
+
 (defprotocol IAggregate
   (scalar-aggr? [this])
-  (vector-aggr? [this])
-  (has-cond? [this]))
-  
+  (vector-aggr? [this]))
 
 (defn make-tbl-prefix-mapping [cols tbl]
   (let [
@@ -87,6 +88,9 @@
         expr (str first-num " " op " " second-num)]
     (if is_nest (str "(" expr ")") expr)))
 
+(defmethod cond-to-str clojure.lang.LazySeq [condition is_nest]
+  (cond-to-str (apply list condition) is_nest))
+
 
 ; MockTbl is internal-use for Table replace
 (defrecord MockTbl [mock-data]
@@ -144,7 +148,7 @@
     (map map-fn cols)))
 
 (defn replace-tbl-on-fn-desc [condition tbl-mapping]
-  (seq (map 
+  (sequence (map 
     #(if (satisfies? IRelation %1) 
        (replace-tbl %1 tbl-mapping)
        %1)
@@ -241,19 +245,20 @@
                       ]))
   (meta-cols [this] (meta-cols tbl)))
 
-(defrecord Join [left-tbl right-tbl col-matches]
+(defrecord Join [left-tbl right-tbl col-matches condition]
+  ICondition
+  (has-cond? [this]
+             (not (empty? condition)))
   IRelation
-  (sql [_] 
+  (sql [this] 
        (let [
              left-tbl-str (to-sub-sql left-tbl)
              right-tbl-str (to-sub-sql right-tbl)
-             col-str (col-matches-to-str col-matches)
+             col-str (if (empty? col-matches) "" (str  " ON " (col-matches-to-str col-matches)))
+             cond-str (if (has-cond? this) (str " WHERE " (cond-to-str condition false)))
              join-str (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str)
              ]
-         (if (empty? col-matches)
-           join-str
-           (str join-str " ON " col-str)
-         )))
+         (str join-str col-str cond-str)))
   (query-data [this data is-sub] 
          (let 
            [
@@ -267,11 +272,14 @@
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
                            join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
+                           reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
+                                                         (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
+                                                           (if (query-sub-sql condition new-row) (conj ret new-row) ret)))
                            ]
-                       (if join-rows-in-right-tbl 
-                         (apply conj ret (reduce #(conj %1 (merge %2 row-in-left-tbl)) [] join-rows-in-right-tbl))
+                       (if join-rows-in-right-tbl
+                         (apply conj ret (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl))
                          ret)))
-                   [] left-tbl-data)
+                                [] left-tbl-data)
             ]
            (update-row-tbl-prefix this is-sub joined-data)))
   (as-name [_] 
@@ -282,17 +290,19 @@
                        new-left-tbl (replace-tbl left-tbl tbl-mapping)
                        new-right-tbl (replace-tbl right-tbl tbl-mapping)
                        new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
+                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
                        ]
-                     (->Join new-left-tbl new-right-tbl new-col-matches))))
+                     (->Join new-left-tbl new-right-tbl new-col-matches new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? left-tbl matching-tbl)
                       (involve-tbl? right-tbl matching-tbl)
+                      (involve-tbl-on-fn-desc? condition matching-tbl)
                       ]))
   (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
 
 
-(defrecord LeftJoin [left-tbl right-tbl col-matches]
+(defrecord LeftJoin [left-tbl right-tbl col-matches condition]
   IRelation
   (sql [_] 
        (let [
@@ -334,66 +344,11 @@
                        new-right-tbl (replace-tbl right-tbl tbl-mapping)
                        new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
                        ]
-                     (->LeftJoin new-left-tbl new-right-tbl new-col-matches))))
+                     (->LeftJoin new-left-tbl new-right-tbl new-col-matches []))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (involve-tbl? left-tbl matching-tbl)
                       (involve-tbl? right-tbl matching-tbl)
-                      ]))
-  (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
-
-(defrecord ThetaJoin [left-tbl right-tbl col-matches condition]
-  IRelation
-  (sql [_] 
-       (let [
-             left-tbl-str (to-sub-sql left-tbl)
-             right-tbl-str (to-sub-sql right-tbl)
-             col-str (col-matches-to-str col-matches)
-             cond-str (cond-to-str condition false)
-             ]
-         (str "SELECT * FROM " left-tbl-str " JOIN " right-tbl-str " ON " col-str " WHERE " cond-str)
-         ))
-  (query-data [this data is-sub] 
-         (let 
-           [
-            left-tbl-data (query-sub-sql left-tbl data)
-            left-tbl-col-names (map sql (keys col-matches))
-            right-tbl-data (query-sub-sql right-tbl data)
-            right-tbl-col-names (map sql (vals col-matches))
-            right-tbl-data-indexes (set/index right-tbl-data right-tbl-col-names)
-            col-mapping (zipmap left-tbl-col-names right-tbl-col-names)
-            joined-data (reduce (fn [ret row-in-left-tbl]
-                     (let [
-                           left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
-                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
-                           reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
-                                                         (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
-                                                           (if (query-sub-sql condition new-row) (conj ret new-row) ret)))
-                           ]
-                       (if join-rows-in-right-tbl
-                         ; (apply conj ret (reduce #(conj %1 (merge %2 row-in-left-tbl)) [] join-rows-in-right-tbl))
-                         (apply conj ret (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl))
-                         ret)))
-                   [] left-tbl-data)
-            ]
-            (update-row-tbl-prefix this is-sub joined-data)
-           ))
-  (as-name [_] 
-         (str "tj" (gen-table-name-seq)))
-  (replace-tbl [this tbl-mapping]
-               (get tbl-mapping this 
-                 (let [
-                       new-left-tbl (replace-tbl left-tbl tbl-mapping)
-                       new-right-tbl (replace-tbl right-tbl tbl-mapping)
-                       new-col-matches (update-map-kv col-matches replace-tbl tbl-mapping)
-                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
-                       ]
-                     (->ThetaJoin new-left-tbl new-right-tbl new-col-matches new-condition))))
-  (involve-tbl? [this matching-tbl]
-                (some true? [
-                      (involve-tbl? left-tbl matching-tbl)
-                      (involve-tbl? right-tbl matching-tbl)
-                      (involve-tbl-on-fn-desc? condition matching-tbl)
                       ]))
   (meta-cols [this] (apply conj (meta-cols left-tbl) (meta-cols right-tbl))))
 
@@ -419,7 +374,10 @@
   IAggregate
   (scalar-aggr? [this] (empty? group-cols))
   (vector-aggr? [this] (not (scalar-aggr? this)))
+  
+  ICondition
   (has-cond? [this] (not (empty? condition)))
+  
   IRelation
   (sql [_]
        (let 
@@ -499,7 +457,7 @@
          (let
            [
             apply-expr (fn [row] (let [
-                                       joined (op-ctor relation expr {})
+                                       joined (op-ctor relation expr {} [])
                                        applied-joined (replace-tbl joined {relation (->MockTbl [row])})
                                        ]
                                    (query-sub-sql applied-joined data)))
@@ -531,7 +489,6 @@
 (defmethod to-sql Select [select] (sql select))
 (defmethod to-sql Join [join] (sql join))
 (defmethod to-sql LeftJoin [join] (sql join))
-(defmethod to-sql ThetaJoin [join] (sql join))
 (defmethod to-sql Aggregate [aggr] (sql aggr))
 (defmethod to-sql Col [col] (sql col))
 (defmethod to-sql Apply [apply] (sql apply))
@@ -553,23 +510,29 @@
 (defmethod query Select [sel data is-sub] (query-data sel data is-sub))
 (defmethod query Join [join data is-sub] (query-data join data is-sub))
 (defmethod query LeftJoin [join data is-sub] (query-data join data is-sub))
-(defmethod query ThetaJoin [join data is-sub] (query-data join data is-sub))
 (defmethod query Aggregate [aggr data is-sub] (query-data aggr data is-sub))
 (defmethod query Apply [apply data is-sub] (query-data apply data is-sub))
 (defmethod query Col [col data is-sub] (query-data col data is-sub))
 (defmethod query java.lang.String [str _ _] (identity str))
 (defmethod query MockTbl [tbl data is-sub] (query-data tbl data is-sub))
+(defmethod query clojure.lang.PersistentList$EmptyList [condition row is-sub]  ;condition
+  (identity true))
+(defmethod query clojure.lang.LazySeq [condition row is-sub]  ;condition
+  (query (apply list condition) row is-sub))
 (defmethod query clojure.lang.Cons [condition row is-sub]  ;condition
   (query (apply list condition) row is-sub))
+(defmethod query clojure.lang.PersistentVector [condition row is-sub]  ;condition
+  (query (apply list condition) row is-sub))
 (defmethod query clojure.lang.PersistentList [condition row _] ;condition
-  (let [
+  (if (empty? condition) true
+    (let [
         cond-fn-name (first condition)
         cond-fn (cond-fn-name sql-functions)
         cond-args (rest condition)
         queried-args (map #(query-sub-sql % row) cond-args)
         ]
         (log/debugf "query condition: (%s %s), row: %s" cond-fn-name (pr-str queried-args) (pr-str row))
-        (apply cond-fn queried-args)))
+        (apply cond-fn queried-args))))
 
 (defn query-sql [op data]
   (log/debugf "query (%s)" (type op))

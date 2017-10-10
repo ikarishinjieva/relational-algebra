@@ -67,8 +67,8 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         pos (->Base "tbl_position" (get metas "tbl_position"))
-        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")})
-        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")})
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [])
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [])
         actual (to-sql (convert-join-associative raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN (SELECT * FROM tbl_city AS tbl_city0 JOIN tbl_position AS tbl_position0 ON tbl_city0.city_code = tbl_position0.city_code) AS j0 ON tbl_person0.city = j0.city_code"] 
     (is (= expect actual))
@@ -79,8 +79,8 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         pos (->Base "tbl_position" (get metas "tbl_position"))
-        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")})
-        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")})
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [])
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [])
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-join-associative raw) data))
         ]
@@ -91,7 +91,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")})
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [])
         raw (->Select inner `(:> ~(->Col inner "id") 2))
         actual (to-sql (convert-select_join-to-theta_join raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE j0.id > 2"] 
@@ -102,7 +102,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")})
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [])
         raw (->Select inner `(:> ~(->Col inner "id") 2))
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-select_join-to-theta_join raw) data))
@@ -114,10 +114,10 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         actual (to-sql (convert-select_theta_join-to-theta_join raw))
-        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (tj0.id < 10) and (tbl_person0.id > 2)"] 
+        expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (j0.id < 10) and (tbl_person0.id > 2)"] 
     (is (= expect actual))
     ))
 
@@ -125,7 +125,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->ThetaJoin p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-select_theta_join-to-theta_join raw) data))

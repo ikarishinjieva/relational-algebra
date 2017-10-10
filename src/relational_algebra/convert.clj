@@ -1,6 +1,6 @@
 (ns relational-algebra.convert
   (:require [relational-algebra.core :refer :all])
-  (:import [relational_algebra.core Base Select Join ThetaJoin Apply Project Aggregate])
+  (:import [relational_algebra.core Base Select Join Apply Project Aggregate])
   )
 
 (defn convert-select-commutative [sel]
@@ -40,8 +40,8 @@
         e1-e2-cols (:col-matches e1-join-e2)
         e1-e2-cols-e1 (key (first e1-e2-cols))
         e1-e2-cols-e2 (val (first e1-e2-cols))
-        e2-join-e3 (->Join e2 e3 {(->Col e2 (:col e12-e3-cols-e12)) e12-e3-cols-e3})
-        e1-join-e23 (->Join e1 e2-join-e3 {e1-e2-cols-e1 (->Col e2-join-e3 (:col e1-e2-cols-e2))})
+        e2-join-e3 (->Join e2 e3 {(->Col e2 (:col e12-e3-cols-e12)) e12-e3-cols-e3} [])
+        e1-join-e23 (->Join e1 e2-join-e3 {e1-e2-cols-e1 (->Col e2-join-e3 (:col e1-e2-cols-e2))} [])
         ]
     (identity e1-join-e23))
   )
@@ -54,7 +54,7 @@
           ]}
   (let [
         join (:tbl sel)
-        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) (:condition sel))
+        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) (:condition sel))
         ]
     (identity new-join))
   )
@@ -63,13 +63,14 @@
 (defn convert-select_theta_join-to-theta_join [sel]
   {:pre  [
           (instance? Select sel)
-          (instance? ThetaJoin (:tbl sel))
+          (instance? Join (:tbl sel))
+          (has-cond? (:tbl sel))
           ]}
   (let [
         join (:tbl sel)
         sel-cond (:condition sel)
         join-cond (:condition join)
-        new-join (->ThetaJoin (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond))
+        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond))
         ]
     (identity new-join))
   )
@@ -84,7 +85,7 @@
   (let [
         expr (:expr appl)
         rel (:relation appl)
-        new-join (->Join rel expr {})
+        new-join (->Join rel expr {} [])
         ]
     (identity new-join))
   )
@@ -100,7 +101,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-join (->ThetaJoin rel (:tbl sel) {} (:condition sel))
+        new-join (->Join rel (:tbl sel) {} (:condition sel))
         ]
     (identity new-join))
   )
