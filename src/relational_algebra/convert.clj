@@ -101,7 +101,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-join (->Join rel (:tbl sel) {} (:condition sel) :inner)
+        new-join (->Join rel (:tbl sel) {} (:condition sel) (:join-type appl))
         ]
     (identity new-join))
   )

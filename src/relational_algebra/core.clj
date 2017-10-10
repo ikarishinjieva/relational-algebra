@@ -272,16 +272,19 @@
             joined-data (reduce (fn [ret row-in-left-tbl]
                      (let [
                            left-row-in-right-key (set/rename-keys (select-keys row-in-left-tbl left-tbl-col-names) col-mapping)
-                           join-rows-in-right-tbl (get right-tbl-data-indexes left-row-in-right-key)
+                           join-rows-in-right-tbl (or (get right-tbl-data-indexes left-row-in-right-key) [])
                            reduce-fn-if-row-match-cond (fn [ret row-in-right-tbl] 
                                                          (let [new-row (merge row-in-right-tbl row-in-left-tbl)]
-                                                           (if (query-sub-sql condition new-row) (conj ret new-row) ret)))
+                                                           (if (query-sub-sql condition new-row) 
+                                                             (conj ret new-row) 
+                                                             ret)))
+                           joined-rows (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl)
                            ]
-                       (if join-rows-in-right-tbl
-                         (apply conj ret (reduce reduce-fn-if-row-match-cond [] join-rows-in-right-tbl))
-                         (if (= (:join-type this) :left)
-                           (conj ret row-in-left-tbl)
-                           ret)
+                         (if-not (empty? joined-rows)
+                           (apply conj ret joined-rows)
+                           (if (= (:join-type this) :left)
+                             (conj ret row-in-left-tbl)
+                             ret)
                          ))) [] left-tbl-data)
             ]
            (update-row-tbl-prefix this is-sub joined-data)))
