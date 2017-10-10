@@ -67,8 +67,8 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         pos (->Base "tbl_position" (get metas "tbl_position"))
-        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [])
-        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [])
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [] :inner)
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [] :inner)
         actual (to-sql (convert-join-associative raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN (SELECT * FROM tbl_city AS tbl_city0 JOIN tbl_position AS tbl_position0 ON tbl_city0.city_code = tbl_position0.city_code) AS j0 ON tbl_person0.city = j0.city_code"] 
     (is (= expect actual))
@@ -79,8 +79,8 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         pos (->Base "tbl_position" (get metas "tbl_position"))
-        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [])
-        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [])
+        inner-join (->Join p c {(->Col p "city") (->Col c "city_code")} [] :inner)
+        raw (->Join inner-join pos {(->Col inner-join "city_code") (->Col pos "city_code")} [] :inner)
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-join-associative raw) data))
         ]
@@ -91,7 +91,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [])
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [] :inner)
         raw (->Select inner `(:> ~(->Col inner "id") 2))
         actual (to-sql (convert-select_join-to-theta_join raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE j0.id > 2"] 
@@ -102,7 +102,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [])
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} [] :inner)
         raw (->Select inner `(:> ~(->Col inner "id") 2))
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-select_join-to-theta_join raw) data))
@@ -114,7 +114,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2) :inner)
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         actual (to-sql (convert-select_theta_join-to-theta_join raw))
         expect "SELECT * FROM tbl_person AS tbl_person0 JOIN tbl_city AS tbl_city0 ON tbl_person0.city = tbl_city0.city_code WHERE (j0.id < 10) and (tbl_person0.id > 2)"] 
@@ -125,7 +125,7 @@
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
-        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2))
+        inner (->Join p c {(->Col p "city") (->Col c "city_code")} `(:> ~(->Col p "id") 2) :inner)
         raw (->Select inner `(:< ~(->Col inner "id") 10))
         expect (remove-data-table-prefix (query-sql raw data))
         actual (remove-data-table-prefix (query-sql (convert-select_theta_join-to-theta_join raw) data))
@@ -138,7 +138,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr ->Join)
+        appl (->Apply c aggr :inner)
         actual (to-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl))
         expect "SELECT * FROM tbl_city AS tbl_city0 JOIN (SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2) AS a0"] 
     (is (= expect actual))
@@ -149,7 +149,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr ->Join)
+        appl (->Apply c aggr :inner)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl) data))]
     (is (= expect actual))
@@ -162,7 +162,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Select p `(:> ~(->Col p "id") 2))
-        appl (->Apply c expr ->Join)
+        appl (->Apply c expr :inner)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join appl) data))]
     (is (= expect actual))
@@ -175,7 +175,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Select p `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c expr ->Join)
+        appl (->Apply c expr :inner)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_select-to-select_apply appl) data))]
     (is (= expect actual))
@@ -188,7 +188,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Project p `(~(->Col p "id") ~(->Col p "name")))
-        appl (->Apply c expr ->Join)
+        appl (->Apply c expr :inner)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_project-to-project_apply appl) data))]
     (is (= expect actual))
@@ -202,7 +202,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         p-sel (->Select p `(:= ~(->Col p "city") ~(->Col c "city_code")))
         aggr (->Aggregate p-sel [] `(:avg ~(->Col p "age")) [])
-        appl (->Apply c aggr ->LeftJoin)
+        appl (->Apply c aggr :inner)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl) data))]
     (is (= expect actual))
@@ -224,7 +224,7 @@
       order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
       order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
       aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
-      appl (->Apply cust aggr ->Join)
+      appl (->Apply cust aggr :inner)
       expect (remove-data-table-prefix (query-sql appl data))
       after-convert (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)
       actual (remove-data-table-prefix (query-sql after-convert data))
@@ -245,7 +245,7 @@
               order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
               order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
               aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
-              appl (->Apply cust aggr ->Join)
+              appl (->Apply cust aggr :inner)
               expect (remove-data-table-prefix (query-sql appl data))
               
               after-rule9 (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)

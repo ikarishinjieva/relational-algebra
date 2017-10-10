@@ -40,8 +40,8 @@
         e1-e2-cols (:col-matches e1-join-e2)
         e1-e2-cols-e1 (key (first e1-e2-cols))
         e1-e2-cols-e2 (val (first e1-e2-cols))
-        e2-join-e3 (->Join e2 e3 {(->Col e2 (:col e12-e3-cols-e12)) e12-e3-cols-e3} [])
-        e1-join-e23 (->Join e1 e2-join-e3 {e1-e2-cols-e1 (->Col e2-join-e3 (:col e1-e2-cols-e2))} [])
+        e2-join-e3 (->Join e2 e3 {(->Col e2 (:col e12-e3-cols-e12)) e12-e3-cols-e3} [] :inner)
+        e1-join-e23 (->Join e1 e2-join-e3 {e1-e2-cols-e1 (->Col e2-join-e3 (:col e1-e2-cols-e2))} [] :inner)
         ]
     (identity e1-join-e23))
   )
@@ -54,7 +54,7 @@
           ]}
   (let [
         join (:tbl sel)
-        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) (:condition sel))
+        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) (:condition sel) :inner)
         ]
     (identity new-join))
   )
@@ -70,7 +70,7 @@
         join (:tbl sel)
         sel-cond (:condition sel)
         join-cond (:condition join)
-        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond))
+        new-join (->Join (:left-tbl join) (:right-tbl join) (:col-matches join) `(:and ~sel-cond ~join-cond) :inner)
         ]
     (identity new-join))
   )
@@ -85,7 +85,7 @@
   (let [
         expr (:expr appl)
         rel (:relation appl)
-        new-join (->Join rel expr {} [])
+        new-join (->Join rel expr {} [] :inner)
         ]
     (identity new-join))
   )
@@ -101,7 +101,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-join (->Join rel (:tbl sel) {} (:condition sel))
+        new-join (->Join rel (:tbl sel) {} (:condition sel) :inner)
         ]
     (identity new-join))
   )
@@ -159,7 +159,7 @@
         aggr (:expr appl)
         aggr-fn (:aggr-fn-desc aggr)
         aggr-tbl (:tbl aggr)
-        new-apply (->Apply rel aggr-tbl ->LeftJoin)
+        new-apply (->Apply rel aggr-tbl :left)
         new-group-cols (map #(->Col new-apply %) (meta-cols rel))
         new-aggr-fn-desc (replace-tbl-on-fn-desc (:aggr-fn-desc aggr) {aggr-tbl new-apply}) ;TODO: F, like count(*), should be convert to F', like count(col)
         new-cond (replace-tbl-on-fn-desc (:condition aggr) {aggr-tbl new-apply})
