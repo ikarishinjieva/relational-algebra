@@ -138,7 +138,8 @@
 
 (defn remove-data-table-prefix [rows]
   (let [
-        remove-prefix-fn (fn [k] (last (str/split k #"\.")))]
+        remove-prefix-fn (fn [k] (str/replace k #"[a-zA-Z0-9\_\-]+\." ""))
+        ]
     (map #(update-map-k %1 remove-prefix-fn) rows)))
 
 (defn replace-cols-table-prefix [cols new-tbl]
