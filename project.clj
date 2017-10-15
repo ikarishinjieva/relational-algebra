@@ -9,10 +9,15 @@
                                                   javax.jms/jms
                                                   com.sun.jdmk/jmxtools
                                                   com.sun.jmx/jmxri]]
-                 [aprint "0.1.3"]]
+                 [aprint "0.1.3"]
+                 [es.usc.citius.hipster/hipster-all "1.0.1"]]
   :main ^:skip-aot relational-algebra.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
   :mirrors {"central" {:name "central"
-                       :url "http://maven.aliyun.com/nexus/content/groups/public/"}}
+                       :url "http://maven.aliyun.com/nexus/content/groups/public/"}
+            "sonatype-oss-public" {
+                                   :name "sonatype-oss-public"
+                                   :url "https://oss.sonatype.org/content/groups/public/"
+                                   }}
   )
