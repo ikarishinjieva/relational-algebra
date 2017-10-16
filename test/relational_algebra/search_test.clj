@@ -55,11 +55,9 @@
               aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
               appl (->Apply cust aggr :inner)
               expect (remove-data-table-prefix (query-sql appl data))
-              
-              after-rule9 (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)
-              appl-after-rule2 (convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join (:tbl after-rule9))
-              after-rule2 (replace-tbl after-rule9 {(:tbl after-rule9) appl-after-rule2})
-              actual (remove-data-table-prefix (query-sql after-rule2 data))
+          
+              after-search (search appl)    
+              actual (remove-data-table-prefix (query-sql after-search data))
               ]
-          (search appl)
+          (is (= expect actual))
         ))

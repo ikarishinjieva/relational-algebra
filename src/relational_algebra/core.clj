@@ -21,7 +21,8 @@
   (involve-tbl? [this matching-tbl])
   (meta-cols [this])
   (estimate-cost [this])
-  (estimate-rows [this]))
+  (estimate-rows [this])
+  (iterate-tbl [this iter-fn]))
 
 (defprotocol ICondition
   (has-cond? [this]))
@@ -102,7 +103,8 @@
   (as-name [_] 
          (str "mock" (gen-table-name-seq)))
   (estimate-cost [this] (identity 1))
-  (estimate-rows [this] (identity 1)))
+  (estimate-rows [this] (identity 1))
+  (iterate-tbl [this iter-fn] (identity [(iter-fn this)])))
 
 (defrecord Col [tbl col]
   IRelation
@@ -128,7 +130,11 @@
                 (involve-tbl? tbl matching-tbl))
   (meta-cols [this] (identity col))
   (estimate-cost [this] (identity 1))
-  (estimate-rows [this] (estimate-rows tbl)))
+  (estimate-rows [this] (estimate-rows tbl))
+  (iterate-tbl [this iter-fn] 
+               (concat 
+                 [(iter-fn this)] 
+                 (iterate-tbl tbl iter-fn))))
 
 (defmethod cond-to-str Col [col is_nest] 
   (sql col))
@@ -195,6 +201,7 @@
   (meta-cols [this] (identity cols))
   (estimate-cost [this] (identity 1)) 
   (estimate-rows [this] (identity 1024)) ;presume a table has 1024 rows
+  (iterate-tbl [this iter-fn] (identity [(iter-fn this)]))
 )
 
 (defrecord Project [tbl cols]
@@ -224,7 +231,11 @@
                 (involve-tbl? tbl matching-tbl))
   (meta-cols [this] (map :col cols))
   (estimate-cost [this] (+ (estimate-cost tbl) 1))
-  (estimate-rows [this] (estimate-rows tbl)))
+  (estimate-rows [this] (estimate-rows tbl))
+  (iterate-tbl [this iter-fn] 
+               (concat 
+                [(iter-fn this)]
+                (iterate-tbl tbl iter-fn))))
 
 (defrecord Select [tbl condition]
   IRelation
@@ -258,6 +269,10 @@
   (meta-cols [this] (meta-cols tbl))
   (estimate-cost [this] (+ (estimate-cost tbl) (estimate-rows tbl)))
   (estimate-rows [this] (/ (estimate-rows tbl) 4)) ;presume condition matches 1/4 rows
+  (iterate-tbl [this iter-fn]
+               (concat  
+                [(iter-fn this)]
+                (iterate-tbl tbl iter-fn)))
 )
 
 (defrecord Join [left-tbl right-tbl col-matches condition join-type]
@@ -327,7 +342,12 @@
                               join-rows (* (estimate-rows left-tbl) (estimate-rows right-tbl))
                               matches-devision (if (has-cond? this) 4 1)
                               ]
-                          (/ join-rows matches-devision))))
+                          (/ join-rows matches-devision)))
+  (iterate-tbl [this iter-fn] 
+               (concat 
+                [(iter-fn this)]
+                (iterate-tbl left-tbl iter-fn)
+                (iterate-tbl right-tbl iter-fn))))
 
 (defn aggr-avg [items key] 
   (if (empty? items)
@@ -426,6 +446,10 @@
                       (conj group-cols aggr-fn-str)))
   (estimate-cost [this] (+ (estimate-cost tbl) (estimate-rows tbl)))
   (estimate-rows [this] (/ (estimate-rows tbl) 8)) ;presume aggregate rows is 1/8 of rows
+  (iterate-tbl [this iter-fn] 
+               (concat 
+                [(iter-fn this)]
+                (iterate-tbl tbl iter-fn)))
 )
 
 ; Apply = { foreach (rel in relation) { return op(rel, expr(rel)) } }
@@ -468,6 +492,11 @@
                             (estimate-cost expr) ;expr is established by every relation row, so use estimate-cost insteand of estimate-rows
                             ))) 
   (estimate-rows [this] (/ (* (estimate-rows relation) (estimate-rows expr)) 8)) ;presume aggregate rows is 1/8 of rows
+  (iterate-tbl [this iter-fn]
+               (concat  
+                [(iter-fn this)]
+                (iterate-tbl relation iter-fn)
+                (iterate-tbl expr iter-fn)))
 )
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))

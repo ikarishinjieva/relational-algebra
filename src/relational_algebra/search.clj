@@ -19,10 +19,19 @@
                                   convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
                                   convert-apply_scalar_aggregate-to-vector_aggregate_apply
                                   ]
-                        reduce-fn (fn [res convert] 
-                                    (try 
-                                      (conj res (convert stat))
-                                      (catch java.lang.AssertionError e (identity res))))
+                        try-convert (fn [tbl convert] (try 
+                                      (convert tbl)
+                                      (catch java.lang.AssertionError e (identity nil))))
+                        reduce-fn (fn [res convert]
+                                    (let [
+                                      	replacements (iterate-tbl stat 
+	                                                 (fn [tbl] 
+	                                                   (if-not (nil? (try-convert tbl convert))
+	                                                     (identity {tbl (convert tbl)})
+	                                                     nil)))
+                                        replacements (remove nil? replacements)
+                                      ]
+                                      (concat res (map #(replace-tbl stat %1) replacements))))
                         res (reduce reduce-fn [] converts)
                         ]
               		(if (empty? res) [stat] res)))))
@@ -52,6 +61,9 @@
         p (.build p)
         p (Hipster/createAnnealingSearch p nil nil nil nil)
         res (.search p predicate-fn)
+        goal (.state (first (.getGoalNodes res)))
         ]
-    (print "GOAL:" (map #(aprint (.state %1)) (.getGoalNodes res)) "\n")
-    (print "PATH:" (map #(do (aprint %1) (print "\n")) (.getOptimalPaths res)) "\n")))
+    (identity goal)
+    ; (print "GOAL:" (map #(aprint (.state %1)) (.getGoalNodes res)) "\n")
+    ; (print "PATH:" (map #(do (aprint %1) (print "\n")) (.getOptimalPaths res)) "\n"))
+  ))
