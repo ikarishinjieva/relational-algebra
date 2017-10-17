@@ -16,8 +16,16 @@
     (successorsOf [stat] 
                   (let [
                         converts [
-                                  convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
-                                  convert-apply_scalar_aggregate-to-vector_aggregate_apply
+									convert-select-commutative
+									convert-base-to-select
+									convert-join-associative
+									convert-select_join-to-theta_join
+									convert-select_theta_join-to-theta_join
+									convert-apply_whose_expr_not_resolved_from_relation-to-join
+									convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join
+									convert-apply_select-to-select_apply
+									convert-apply_project-to-project_apply
+									convert-apply_scalar_aggregate-to-vector_aggregate_apply
                                   ]
                         try-convert (fn [tbl convert] (try 
                                       (convert tbl)

@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [relational-algebra.search :refer :all]
             [relational-algebra.core :refer :all]
-            [relational-algebra.convert :refer :all]))
+            [relational-algebra.convert :refer :all]
+            [aprint.core :refer :all]))
 
 (def data {
            "tbl_person" [
@@ -59,5 +60,6 @@
               after-search (search appl)    
               actual (remove-data-table-prefix (query-sql after-search data))
               ]
+          (aprint after-search)
           (is (= expect actual))
         ))
