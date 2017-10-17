@@ -11,6 +11,8 @@
     (es.usc.citius.hipster.model.function.impl StateTransitionFunction)
     (es.usc.citius.hipster.util Predicate)))
 
+(defrecord search-stat [tag rel])
+
 (def state-transition-fn
   (proxy [StateTransitionFunction TransitionFunction] [] 
     (successorsOf [stat] 
@@ -32,14 +34,15 @@
                                       (catch java.lang.AssertionError e (identity nil))))
                         reduce-fn (fn [res convert]
                                     (let [
-                                      	replacements (iterate-tbl stat 
-	                                                 (fn [tbl] 
-	                                                   (if-not (nil? (try-convert tbl convert))
-	                                                     (identity {tbl (convert tbl)})
-	                                                     nil)))
+                                      	replacements (iterate-tbl (:rel stat) 
+                                                                 (fn [tbl]
+                                                                   (let [after-convert (try-convert tbl convert)]
+                                                                     (if-not (nil? after-convert)
+                                                                       (identity (->search-stat convert {tbl after-convert}))
+                                                                       nil))))
                                         replacements (remove nil? replacements)
                                       ]
-                                      (concat res (map #(replace-tbl stat %1) replacements))))
+                                      (concat res (map #(->search-stat (:tag %1) (replace-tbl (:rel stat) (:rel %1))) replacements))))
                         res (reduce reduce-fn [] converts)
                         ]
               		(if (empty? res) [stat] res)))))
@@ -51,17 +54,17 @@
 
 (def heuristic-fn
   (proxy [HeuristicFunction] [] 
-    (estimate [state] 
-              (double (estimate-cost state)))))
+    (estimate [stat] 
+              (double (estimate-cost (:rel stat))))))
 
 (def predicate-fn
   (proxy [Predicate] []
     (apply [node] (identity false))))
 
-(defn search [init-status]
+(defn search [init-rel]
   (let [
         p (ProblemBuilder/create)
-        p (.initialState p init-status)
+        p (.initialState p (->search-stat "init" init-rel))
         p (.defineProblemWithoutActions p)
         p (.useTransitionFunction p state-transition-fn)
         p (.useCostFunction p cost-fn)
@@ -71,7 +74,7 @@
         res (.search p predicate-fn)
         goal (.state (first (.getGoalNodes res)))
         ]
-    (identity goal)
+    (print "PATH:" (map (fn [paths] (map (fn [s] (do (aprint s))) paths)) (.getOptimalPaths res)))
+    (identity (:rel goal))
     ; (print "GOAL:" (map #(aprint (.state %1)) (.getGoalNodes res)) "\n")
-    ; (print "PATH:" (map #(do (aprint %1) (print "\n")) (.getOptimalPaths res)) "\n"))
   ))
