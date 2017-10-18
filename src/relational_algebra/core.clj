@@ -127,7 +127,10 @@
                  (let [new-tbl (get tbl-mapping tbl tbl)]
                      (->Col new-tbl col))))
   (involve-tbl? [this matching-tbl]
-                (involve-tbl? tbl matching-tbl))
+                (some true? [
+                             (= this matching-tbl)
+                             (involve-tbl? tbl matching-tbl)
+                             ]))
   (meta-cols [this] (identity col))
   (estimate-cost [this] (identity 1))
   (estimate-rows [this] (estimate-rows tbl))
@@ -228,7 +231,10 @@
                     (let [new-tbl (replace-tbl tbl tbl-mapping)]
                       (->Project new-tbl cols))))
   (involve-tbl? [this matching-tbl]
-                (involve-tbl? tbl matching-tbl))
+                (some true? [
+                             (= this matching-tbl)
+                             (involve-tbl? tbl matching-tbl)
+                             ]))
   (meta-cols [this] (map :col cols))
   (estimate-cost [this] (+ (estimate-cost tbl) 1))
   (estimate-rows [this] (estimate-rows tbl))
@@ -263,6 +269,7 @@
                    (->Select new-tbl new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
+                      (= this matching-tbl)
                       (involve-tbl? tbl matching-tbl)
                       (involve-tbl-on-fn-desc? condition matching-tbl)
                       ]))
@@ -331,6 +338,7 @@
                      (->Join new-left-tbl new-right-tbl new-col-matches new-condition (:join-type this)))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
+                      (= this matching-tbl)
                       (involve-tbl? left-tbl matching-tbl)
                       (involve-tbl? right-tbl matching-tbl)
                       (involve-tbl-on-fn-desc? condition matching-tbl)
@@ -434,6 +442,7 @@
                      (->Aggregate new-tbl new-group-cols new-aggr-fn-desc new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
+                      (= this matching-tbl)
                       (involve-tbl? tbl matching-tbl)
                       (involve-tbl-on-fn-desc? aggr-fn-desc matching-tbl)
                       (involve-tbl-on-fn-desc? condition matching-tbl)
@@ -481,6 +490,7 @@
                      (->Apply new-relation new-expr join-type))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
+                      (= this matching-tbl)
                       (involve-tbl? relation matching-tbl)
                       (involve-tbl? expr matching-tbl)
                       ]))
