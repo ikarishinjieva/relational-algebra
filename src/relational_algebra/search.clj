@@ -11,7 +11,7 @@
     (es.usc.citius.hipster.model.function.impl StateTransitionFunction)
     (es.usc.citius.hipster.util Predicate)))
 
-(defrecord search-stat [tag rel])
+(defrecord SearchStat [tag rel])
 
 (def state-transition-fn
   (proxy [StateTransitionFunction TransitionFunction] [] 
@@ -38,11 +38,11 @@
                                                                  (fn [tbl]
                                                                    (let [after-convert (try-convert tbl convert)]
                                                                      (if-not (nil? after-convert)
-                                                                       (identity (->search-stat convert {tbl after-convert}))
+                                                                       (identity (->SearchStat convert {tbl after-convert}))
                                                                        nil))))
                                         replacements (remove nil? replacements)
                                       ]
-                                      (concat res (map #(->search-stat (:tag %1) (replace-tbl (:rel stat) (:rel %1))) replacements))))
+                                      (concat res (map #(->SearchStat (:tag %1) (replace-tbl (:rel stat) (:rel %1))) replacements))))
                         res (reduce reduce-fn [] converts)
                         ]
               		(if (empty? res) [stat] res)))))
@@ -61,10 +61,21 @@
   (proxy [Predicate] []
     (apply [node] (identity false))))
 
+(defprotocol ISearchResult
+  (print-path [this]))
+
+(defrecord SearchResult [rel path]
+  ISearchResult
+  (print-path [this] (let [
+                           tags (map #(.tag %1) path)
+                           ]
+                       (print "PATH: ")
+                       (print (map #(str "\t" %1 "\n") tags)))))
+
 (defn search [init-rel]
   (let [
         p (ProblemBuilder/create)
-        p (.initialState p (->search-stat "init" init-rel))
+        p (.initialState p (->SearchStat "init" init-rel))
         p (.defineProblemWithoutActions p)
         p (.useTransitionFunction p state-transition-fn)
         p (.useCostFunction p cost-fn)
@@ -72,9 +83,6 @@
         p (.build p)
         p (Hipster/createAnnealingSearch p nil nil nil nil)
         res (.search p predicate-fn)
-        goal (.state (first (.getGoalNodes res)))
+        result (zipmap (.getGoalNodes res) (.getOptimalPaths res))
         ]
-    (print "PATH:" (map (fn [paths] (map (fn [s] (do (aprint s))) paths)) (.getOptimalPaths res)))
-    (identity (:rel goal))
-    ; (print "GOAL:" (map #(aprint (.state %1)) (.getGoalNodes res)) "\n")
-  ))
+    (map #(->SearchResult (.rel (.state (first %1))) (last %1)) result)))

@@ -57,9 +57,10 @@
               appl (->Apply cust aggr :inner)
               expect (remove-data-table-prefix (query-sql appl data))
           
-              after-search (search appl)    
-              actual (remove-data-table-prefix (query-sql after-search data))
+              goal (first (search appl))
+              goal-rel (.rel goal)
+              actual (remove-data-table-prefix (query-sql goal-rel data))
               ]
-          (aprint after-search)
+          (print-path goal)
           (is (= expect actual))
         ))
