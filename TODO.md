@@ -1,1 +1,2 @@
 * ambigous columns made by Join, for example, `create table a (f int); create table b (f int); select * from a join b where f = 1`, it will throw ambigous exception. but `select * from a join b where a.f = 1` will return correctly.
+* support NULL as in aggregation and select, for example, `select * from b where NULL;` should return empty, `select 10 < NULL from dual;` should return a record with NULL

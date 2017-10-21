@@ -22,7 +22,6 @@
            "tbl_tpch_customer" [
                                 {"custkey_c" "001"}
                                 {"custkey_c" "002"}
-                                {"custkey_c" "003"}
                                 ]
            "tbl_tpch_order" [
                              {"custkey_o" "001", "price" 102}
