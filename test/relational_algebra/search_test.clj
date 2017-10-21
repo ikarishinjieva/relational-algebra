@@ -20,16 +20,16 @@
                       {"city_code" "BJ", "position" "North"}
                       ]
            "tbl_tpch_customer" [
-                                {"custkey" "001"}
-                                {"custkey" "002"}
-                                {"custkey" "003"}
+                                {"custkey_c" "001"}
+                                {"custkey_c" "002"}
+                                {"custkey_c" "003"}
                                 ]
            "tbl_tpch_order" [
-                             {"custkey" "001", "price" 102}
-                             {"custkey" "001", "price" 421}
-                             {"custkey" "002", "price" 178}
-                             {"custkey" "002", "price" 631}
-                             {"custkey" "004", "price" 555}
+                             {"custkey_o" "001", "price" 102}
+                             {"custkey_o" "001", "price" 421}
+                             {"custkey_o" "002", "price" 178}
+                             {"custkey_o" "002", "price" 631}
+                             {"custkey_o" "004", "price" 555}
                              ]
            })
 
@@ -37,8 +37,8 @@
            "tbl_person" ["id", "name", "city", "age"],
            "tbl_city" ["city_code", "city_name"],
            "tbl_position" ["city_code", "position"]
-           "tbl_tpch_customer" ["custkey"]
-           "tbl_tpch_order" ["custkey", "price"]
+           "tbl_tpch_customer" ["custkey_c"]
+           "tbl_tpch_order" ["custkey_o", "price"]
            })
 
 (deftest test-annealing-search
@@ -52,7 +52,7 @@
         (let [
               cust (->Base "tbl_tpch_customer" (get metas "tbl_tpch_customer"))
               order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
-              order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
+              order-with-cond (->Select order `(:= ~(->Col order "custkey_o") ~(->Col cust "custkey_c")))
               aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
               appl (->Apply cust aggr :inner)
               expect (remove-data-table-prefix (query-sql appl data))
@@ -62,5 +62,5 @@
               actual (remove-data-table-prefix (query-sql goal-rel data))
               ]
           (print-path-costs goal)
-          (is (= expect actual))
-        ))
+          (is (= expect actual))))
+
