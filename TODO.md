@@ -1,0 +1,1 @@
+* ambigous columns made by Join, for example, `create table a (f int); create table b (f int); select * from a join b where f = 1`, it will throw ambigous exception. but `select * from a join b where a.f = 1` will return correctly.
