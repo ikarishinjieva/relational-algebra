@@ -1,5 +1,7 @@
 (ns relational-algebra.convert
-  (:require [relational-algebra.core :refer :all])
+  (:require 
+    [relational-algebra.core :refer :all]
+    [aprint.core :refer :all])
   (:import [relational_algebra.core Base Select Join Apply Project Aggregate])
   )
 
@@ -116,7 +118,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl sel) (:op-ctor appl))
+        new-apply (->Apply rel (:tbl sel) (:join-type appl))
         new-sel (->Select new-apply (:condition sel))
         ]
     (identity new-sel))
@@ -132,7 +134,7 @@
   (let [
         proj (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl proj) (:op-ctor appl))
+        new-apply (->Apply rel (:tbl proj) (:join-type appl))
         rel-cols (map #(->Col rel %) (meta-cols rel))
         new-cols-raw (apply conj (:cols proj) rel-cols)
         new-cols-with-replaced-tbl (replace-tbl-on-fn-desc new-cols-raw {
