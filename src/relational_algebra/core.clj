@@ -275,7 +275,10 @@
                       ]))
   (meta-cols [this] (meta-cols tbl))
   (estimate-cost [this] (+ (estimate-cost tbl) (estimate-rows tbl)))
-  (estimate-rows [this] (/ (estimate-rows tbl) 4)) ;presume condition matches 1/4 rows
+  (estimate-rows [this] (if (= [:true] condition) 
+    (estimate-rows tbl)
+    (/ (estimate-rows tbl) 4) ;presume condition matches 1/4 rows
+    )) 
   (iterate-tbl [this iter-fn]
                (concat  
                 [(iter-fn this)]
