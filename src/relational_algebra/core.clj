@@ -124,7 +124,7 @@
             (get updated-prefix-row col-name))))
   (replace-tbl [this tbl-mapping]
                (get tbl-mapping this 
-                 (let [new-tbl (get tbl-mapping tbl tbl)]
+                 (let [new-tbl (replace-tbl tbl tbl-mapping)]
                      (->Col new-tbl col))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
