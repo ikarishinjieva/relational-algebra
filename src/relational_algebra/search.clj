@@ -62,15 +62,21 @@
     (apply [node] (identity false))))
 
 (defprotocol ISearchResult
-  (print-path [this]))
+  (print-path [this])
+  (print-path-costs [this]))
 
 (defrecord SearchResult [rel path]
   ISearchResult
   (print-path [this] (let [
-                           tags (map #(.tag %1) path)
+                           lines (map #(.tag %1) path)
                            ]
                        (print "PATH: ")
-                       (print (map #(str "\t" %1 "\n") tags)))))
+                       (print (map #(str "\t" %1 "\n") lines) "\n")))
+  (print-path-costs [this] (let [
+                           lines (map #(str (.tag %1) " = " (estimate-cost (.rel %1))) path)
+                           ]
+                       (print "PATH: \n")
+                       (print (map #(str "\t" %1 "\n") lines) "\n"))))
 
 (defn search [init-rel]
   (let [

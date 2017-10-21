@@ -61,6 +61,6 @@
               goal-rel (.rel goal)
               actual (remove-data-table-prefix (query-sql goal-rel data))
               ]
-          (print-path goal)
+          (print-path-costs goal)
           (is (= expect actual))
         ))
