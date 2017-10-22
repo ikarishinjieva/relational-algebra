@@ -53,7 +53,7 @@
               order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
               order-with-cond (->Select order `(:= ~(->Col order "custkey_o") ~(->Col cust "custkey_c")))
               aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
-              appl (make-Apply :relation cust, :expr aggr, :condition [:< 1000000 aggr])
+              appl (make-Apply :relation cust, :expr aggr, :condition [:< 0 aggr])
               expect (remove-data-table-prefix (query-sql appl data))
           
               goal (first (search appl))
@@ -62,4 +62,3 @@
               ]
           (print-path-costs goal)
           (is (= expect actual))))
-

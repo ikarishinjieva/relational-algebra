@@ -207,7 +207,7 @@
   (involve-tbl? [this matching-tbl]
                 (= this matching-tbl))
   (meta-cols [this] (identity cols))
-  (estimate-cost [this] (identity 1)) 
+  (estimate-cost [this] (identity 1024)) 
   (estimate-rows [this] (identity 1024)) ;presume a table has 1024 rows
   (iterate-tbl [this iter-fn] (identity [(iter-fn this)]))
 )
