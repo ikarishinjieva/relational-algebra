@@ -138,7 +138,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr :inner)
+        appl (make-Apply :relation c, :expr aggr)
         actual (to-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl))
         expect "SELECT * FROM tbl_city AS tbl_city0 JOIN (SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2) AS a0"] 
     (is (= expect actual))
@@ -149,7 +149,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr :inner)
+        appl (make-Apply :relation c, :expr aggr)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_whose_expr_not_resolved_from_relation-to-join appl) data))]
     (is (= expect actual))
@@ -162,7 +162,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Select p `(:> ~(->Col p "id") 2))
-        appl (->Apply c expr :inner)
+        appl (make-Apply :relation c, :expr expr)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_whose_select_expr_not_resolved_from_relation-to-theta_join appl) data))]
     (is (= expect actual))
@@ -175,7 +175,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Select p `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c expr :inner)
+        appl (make-Apply :relation c, :expr expr)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_select-to-select_apply appl) data))]
     (is (= expect actual))
@@ -188,7 +188,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         expr (->Project p `(~(->Col p "id") ~(->Col p "name")))
-        appl (->Apply c expr :inner)
+        appl (make-Apply :relation c, :expr expr)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_project-to-project_apply appl) data))]
     (is (= expect actual))
@@ -202,7 +202,7 @@
         p (->Base "tbl_person" (get metas "tbl_person"))
         p-sel (->Select p `(:= ~(->Col p "city") ~(->Col c "city_code")))
         aggr (->Aggregate p-sel [] `(:avg ~(->Col p "age")) [])
-        appl (->Apply c aggr :inner)
+        appl (make-Apply :relation c, :expr aggr)
         expect (remove-data-table-prefix (query-sql appl data))
         actual (remove-data-table-prefix (query-sql (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl) data))]
     (is (= expect actual))
@@ -224,7 +224,7 @@
       order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
       order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
       aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
-      appl (->Apply cust aggr :inner)
+      appl (make-Apply :relation cust, :expr aggr)
       expect (remove-data-table-prefix (query-sql appl data))
       after-convert (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)
       actual (remove-data-table-prefix (query-sql after-convert data))
@@ -245,7 +245,7 @@
               order (->Base "tbl_tpch_order" (get metas "tbl_tpch_order"))
               order-with-cond (->Select order `(:= ~(->Col order "custkey") ~(->Col cust "custkey")))
               aggr (->Aggregate order-with-cond [] `(:sum ~(->Col order-with-cond "price")) [])
-              appl (->Apply cust aggr :inner)
+              appl (make-Apply :relation cust, :expr aggr)
               expect (remove-data-table-prefix (query-sql appl data))
               
               after-rule9 (convert-apply_scalar_aggregate-to-vector_aggregate_apply appl)

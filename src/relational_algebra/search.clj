@@ -72,11 +72,19 @@
                            ]
                        (print "PATH: ")
                        (print (map #(str "\t" %1 "\n") lines) "\n")))
-  (print-path-costs [this] (let [
-                           lines (map #(str (.tag %1) " = " (estimate-cost (.rel %1))) path)
-                           ]
-                       (print "PATH: \n")
-                       (print (map #(str "\t" %1 "\n") lines) "\n"))))
+  (print-path-costs [this] 
+    (let [
+      map-fn (fn [ele] (let [
+          convert-fn (.tag ele)
+          rel (.rel ele)
+          cost (estimate-cost rel)
+          sql (to-sql rel)
+        ]
+        (str convert-fn " = " cost "\n\t\t" sql)))
+      lines (map map-fn path)
+      ]
+      (print "PATH: \n")
+      (print (map #(str "\t" %1 "\n") lines) "\n"))))
 
 (defn search [init-rel]
   (let [

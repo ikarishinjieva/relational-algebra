@@ -118,7 +118,7 @@
   (let [
         sel (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl sel) (:join-type appl))
+        new-apply (make-Apply :relation rel, :expr (:tbl sel), :join-type (:join-type appl), :condition (:condition appl))
         new-sel (->Select new-apply (:condition sel))
         ]
     (identity new-sel))
@@ -134,7 +134,7 @@
   (let [
         proj (:expr appl)
         rel (:relation appl)
-        new-apply (->Apply rel (:tbl proj) (:join-type appl))
+        new-apply (make-Apply :relation rel, :expr (:tbl proj), :join-type (:join-type appl), :condition (:condition appl)) 
         rel-cols (map #(->Col rel %) (meta-cols rel))
         new-cols-raw (apply conj (:cols proj) rel-cols)
         new-cols-with-replaced-tbl (replace-tbl-on-fn-desc new-cols-raw {
@@ -161,7 +161,7 @@
         aggr (:expr appl)
         aggr-fn (:aggr-fn-desc aggr)
         aggr-tbl (:tbl aggr)
-        new-apply (->Apply rel aggr-tbl :left)
+        new-apply (make-Apply :relation rel, :expr aggr-tbl, :join-type :left)
         new-group-cols (map #(->Col new-apply %) (meta-cols rel))
         new-aggr-fn-desc (replace-tbl-on-fn-desc (:aggr-fn-desc aggr) {aggr-tbl new-apply}) ;TODO: F, like count(*), should be convert to F', like count(col)
         new-cond (replace-tbl-on-fn-desc (:condition aggr) {aggr-tbl new-apply})

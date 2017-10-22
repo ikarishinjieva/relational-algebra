@@ -94,6 +94,8 @@
 (defmethod cond-to-str clojure.lang.LazySeq [condition is_nest]
   (cond-to-str (apply list condition) is_nest))
 
+(defmethod cond-to-str clojure.lang.PersistentVector [condition is_nest]
+  (cond-to-str (apply list condition) is_nest))
 
 ; MockTbl is internal-use for Table replace
 (defrecord MockTbl [mock-data]
@@ -106,10 +108,19 @@
   (estimate-rows [this] (identity 1))
   (iterate-tbl [this iter-fn] (identity [(iter-fn this)])))
 
+(defn replace-col-name-table-prefix [col-name new-tbl-prefix]
+  (let [
+    sep (if (empty? new-tbl-prefix) "" ".")
+    ]
+    (str/replace col-name #"[a-zA-Z0-9\_\-]+\." (str new-tbl-prefix sep))))
+
 (defrecord Col [tbl col]
   IRelation
   (sql [_] 
-       (str (as-name tbl) "." col))
+    (let [col-without-tbl (replace-col-name-table-prefix col "")]
+      (if (str/includes? col-without-tbl "(") 
+        (str/replace-first col-without-tbl #"\(" (str "(" (as-name tbl) "."))
+        (str (as-name tbl) "." col-without-tbl))))
   (query-data [this row _] 
         (let [
               r (if (instance? MockTbl tbl) 
@@ -153,15 +164,9 @@
 
 (defn remove-data-table-prefix [rows]
   (let [
-        remove-prefix-fn (fn [k] (str/replace k #"[a-zA-Z0-9\_\-]+\." ""))
+        remove-prefix-fn (fn [k] (replace-col-name-table-prefix k ""))
         ]
     (map #(update-map-k %1 remove-prefix-fn) rows)))
-
-(defn replace-cols-table-prefix [cols new-tbl]
-  (let [
-        map-fn (fn [col] (str (as-name new-tbl) "." (last (str/split col #"\."))))
-        ]
-    (map map-fn cols)))
 
 (defn replace-tbl-on-fn-desc [condition tbl-mapping]
   (sequence (map 
@@ -464,16 +469,25 @@
                 (iterate-tbl tbl iter-fn)))
 )
 
+;TODO make it for all Relation
+;DONOT add "as" clause when Relation is used as a condition variable (like Scalar Aggregation)
+(defmethod cond-to-str Aggregate [rel is_nest] (str "(" (to-sql rel) ")")) 
+
 ; Apply = { foreach (rel in relation) { return op(rel, expr(rel)) } }
-(defrecord Apply [relation expr join-type]
+; Apply is with `condition` and is treated as Select(Apply), because pushing Select condition down is a little complicated.
+(defrecord Apply [relation expr join-type condition]
   IRelation
   (sql [_]
-       )
+    (if (empty? condition) 
+      (str "THIS_IS_APPLY_CANNOT_CONVERT_TO_SQL")
+      (str "SELECT * from " (to-sub-sql relation) " WHERE " (cond-to-str condition false))))
   (query-data [this data is-sub]
          (let
            [
+            expr-col (first (meta-cols expr))
+            replaced-condition (replace-tbl-on-fn-desc condition {expr (->Col expr expr-col)})
             apply-expr (fn [row] (let [
-                                       joined (->Join relation expr {} [] join-type)
+                                       joined (->Join relation expr {} replaced-condition join-type)
                                        applied-joined (replace-tbl joined {relation (->MockTbl [row])})
                                        ]
                                    (query-sub-sql applied-joined data)))
@@ -489,13 +503,15 @@
                  (let [
                        new-relation (replace-tbl relation tbl-mapping)
                        new-expr (replace-tbl expr tbl-mapping)
+                       new-condition (replace-tbl-on-fn-desc condition tbl-mapping)
                        ]
-                     (->Apply new-relation new-expr join-type))))
+                     (->Apply new-relation new-expr join-type new-condition))))
   (involve-tbl? [this matching-tbl]
                 (some true? [
                       (= this matching-tbl)
                       (involve-tbl? relation matching-tbl)
                       (involve-tbl? expr matching-tbl)
+                      (involve-tbl-on-fn-desc? condition matching-tbl)
                       ]))
   (meta-cols [this] (apply conj (meta-cols relation) (meta-cols expr)))
   (estimate-cost [this] (+ 
@@ -511,6 +527,10 @@
                 (iterate-tbl relation iter-fn)
                 (iterate-tbl expr iter-fn)))
 )
+
+(defn make-Apply
+  [& {:keys [relation expr join-type condition] :or {join-type :inner condition '()}}] 
+  (->Apply relation expr join-type condition))
 
 (defmethod to-sql clojure.lang.Keyword [k] (name k))
 (defmethod to-sql java.lang.Long [long] (str long))

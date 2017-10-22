@@ -112,6 +112,30 @@
     (is (= expect actual))
     ))
 
+(deftest to-sql-apply-whose-relation-and-expr-has-no-relation
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        appl (make-Apply :relation c, :expr aggr, :condition `(:> ~aggr 10))
+        actual (to-sql appl)
+        expect "SELECT * from tbl_city AS tbl_city0 WHERE (SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.id > 2) > 10"
+        ]
+    (is (= expect actual))
+    ))
+
+(deftest to-sql-apply-whose-relation-and-expr-has-relation
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        appl (make-Apply :relation c, :expr aggr, :condition `(:> ~aggr 10))
+        actual (to-sql appl)
+        expect "SELECT * from tbl_city AS tbl_city0 WHERE (SELECT avg(tbl_person0.age) FROM tbl_person AS tbl_person0 WHERE tbl_person0.city = tbl_city0.city_code) > 10"
+        ]
+    (is (= expect actual))
+    ))
+
 (deftest query-sql-base
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
@@ -221,12 +245,12 @@
     (is (= expect actual))
     ))
 
-(deftest query-sql-apply-whose-relation-and-expr-has-no-relation
+(deftest query-sql-apply-whose-relation-and-expr-has-no-relation-without-condition
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
-        appl (->Apply c aggr :inner)
+        appl (make-Apply :relation c, :expr aggr)
         actual (query-sql appl data)
         expect [
                 {"avg(j0.age)" 28, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
@@ -236,16 +260,40 @@
     (is (= expect actual))
     ))
 
-(deftest query-sql-apply-whose-relation-and-expr-has-relation
+(deftest query-sql-apply-whose-relation-and-expr-has-relation-without-condition
   (let [
         p (->Base "tbl_person" (get metas "tbl_person"))
         c (->Base "tbl_city" (get metas "tbl_city"))
         aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
-        appl (->Apply c aggr :inner)
+        appl (make-Apply :relation c, :expr aggr)
         actual (query-sql appl data)
         expect [{"avg(j0.age)" 32, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
                 {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"} 
                 {"avg(j0.age)" 0, "j0.city_code" "SZ", "j0.city_name" "ShenZhen"}]
+        ]
+    (is (= expect actual))
+    ))
+(deftest query-sql-apply-whose-relation-and-expr-has-no-relation-with-condition
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:> ~(->Col p "id") 2))
+        appl (make-Apply :relation c, :expr aggr, :condition `(:> ~aggr 28))
+        actual (query-sql appl data)
+        expect []
+        ]
+    (is (= expect actual))
+    ))
+
+(deftest query-sql-apply-whose-relation-and-expr-has-relation-without-condition
+  (let [
+        p (->Base "tbl_person" (get metas "tbl_person"))
+        c (->Base "tbl_city" (get metas "tbl_city"))
+        aggr (->Aggregate p [] `(:avg ~(->Col p "age")) `(:= ~(->Col p "city") ~(->Col c "city_code")))
+        appl (make-Apply :relation c, :expr aggr, :condition `(:> ~aggr 28))
+        actual (query-sql appl data)
+        expect [{"avg(j0.age)" 32, "j0.city_code" "SH", "j0.city_name" "ShangHai"} 
+                {"avg(j0.age)" 30, "j0.city_code" "BJ", "j0.city_name" "BeiJing"} ]
         ]
     (is (= expect actual))
     ))
